@@ -17,44 +17,53 @@ predicted, (4) review/correct architecture, (5) implement missing planned featur
 ### Phase 1: Read documentation — Status: complete
 - [x] README.md, PLAN.md, TODO.md, REVIEW.md read. Key facts in findings.md.
 
-### Phase 2: Full code review — Status: in_progress
-- [ ] Backend: schema.prisma, main.ts, auth/, common/ (note-access), notes/, uploads/, users/, bootstrap
-- [ ] Frontend: core/, editor/, manager/, sharing/, admin/
-- [ ] Shared types, docker compose files, nginx conf, Dockerfiles
-- [ ] Log every bug/risk in findings.md with file:line
+### Phase 2: Full code review — Status: complete
+- [x] All backend/frontend/shared/infra reviewed; findings F1–F10 in findings.md
 
-### Phase 3: Fix bugs found in review — Status: pending
-- (fill in after Phase 2 from findings.md bug list)
+### Phase 3: Fix bugs found in review — Status: complete
+- [x] F1 non-owner editable editor (manager [editable] + title disable + floating-image drag guard)
+- [x] F2 last-admin lockout guard (users.service 409)
+- [x] F3 atomic optimistic concurrency + 400 for non-doc + client sends base + 409 UI
+- [x] F4 CSRF cookie secure flag per-request (csrf-csrf v4 cookieOptions merge)
+- [x] F5 JWT_SECRET fail-fast in prod (main.ts)
+- [x] F6 flush on visibilitychange/pagehide
+- [x] F7 saveError signal + status surface
+- [x] F8 Invite model: left in schema, documented as unused (admin-direct creation)
+- [x] F9 false alarm (PowerShell console encoding)
+- [x] F10 access-matrix e2e suite added (32 tests)
 
-### Phase 4: Architecture review — Status: pending
-- [ ] Git init + baseline commit (before any code changes)
-- [ ] Assess module boundaries, DTO/shared-type drift, service size
+### Phase 4: Architecture review — Status: complete
+- [x] Git init + baseline commit 9a31d9a
+- [x] Tags as own module; maintenance module for sweeps; uploads exports service
+- [x] Preview derived from write-time contentText (no per-read JSON walks)
+- [x] Shared DTOs updated in lockstep
 
-### Phase 5: PR 2 — data safety — Status: pending
-- [ ] Access-matrix e2e test (notes + images IDOR)
-- [ ] Admin break-glass reset (env-based forced reset) + docs
-- [ ] Self-service password change (API + UI)
-- [ ] Autosave 409 optimistic concurrency (server enforce + client handle)
-- [ ] Backups doc (pg_dump + uploads snapshot + cron sample)
+### Phase 5: PR 2 — data safety — Status: complete (docs pending in Phase 8)
+- [x] Access-matrix e2e (notes+images IDOR, trash, revocation, 409, last-admin, pw change)
+- [x] ADMIN_FORCE_PASSWORD_RESET break-glass in bootstrap
+- [x] POST /api/auth/change-password + dialog UI (throttled 5/min)
+- [x] Autosave 409 end-to-end (atomic updateMany + client base + conflict banner)
+- [ ] BACKUP.md (pg_dump + uploads snapshot + cron sample) — Phase 8
 
-### Phase 6: PR 3 — sharing UX + trash — Status: pending
-- [ ] Shared-with-me view + unseen-share badge
-- [ ] Trash: soft delete, restore, permanent delete, 30-day purge sweep + orphan image sweep
-- [ ] Mobile read-friendliness pass
+### Phase 6: PR 3 — sharing UX + trash — Status: complete
+- [x] Shared-with-me sidebar view + NoteShare.seenAt unseen badge (open marks seen)
+- [x] Trash: soft delete/restore/permanent/empty + 30d purge sweep + unreferenced-asset (7d) + orphan-file (24h) sweeps
+- [x] Mobile: off-canvas sidebar <900px, single-pane editor <768px, larger touch targets
 
-### Phase 7: Evernote-parity features — Status: pending
-- [ ] Full-text search (server-side contentText + Postgres FTS; search UI)
-- [ ] Tags (schema + chips + filter)
-- [ ] Pinned notes (pinned-first)
-- [ ] Sort options (updated/created/title, persisted)
-- [ ] Editor: task lists (checkboxes) if cheap
-- [ ] Note duplication, export-as-HTML (client-side) if time allows
+### Phase 7: Evernote-parity features — Status: complete
+- [x] Full-text search (contentText + GIN websearch + ILIKE; debounced search box)
+- [x] Tags (Tag/NoteTag, create-on-use, case-insensitive dedupe, auto-prune; chips + sidebar filter + editor tag input)
+- [x] Pinned notes (pinned-first in all sorts)
+- [x] Sort options (custom/edited/created/title, persisted)
+- [x] Task lists (checkboxes) + strikethrough buttons
+- [x] Note duplication (copies image files, resets PRIVATE)
+- [x] Export note as standalone HTML (client-side)
 
-### Phase 8: Verification — Status: pending
-- [ ] Backend unit + e2e green
-- [ ] Frontend build + unit tests green
+### Phase 8: Verification + docs — Status: in_progress
+- [x] Backend: tsc clean; 18 unit + 32 e2e green
+- [x] Frontend: build green; 7/7 vitest green (fixed @angular/compiler hoisting + stale scaffold spec)
 - [ ] Docker stack golden path via Playwright (search, tags, pin, trash, share badge, 409 banner)
-- [ ] Update PLAN.md / REVIEW.md / README.md status sections
+- [ ] BACKUP.md + README/PLAN/REVIEW/TODO status updates + .env CSRF_SECRET
 
 ## Key decisions
 | Decision | Choice | Why |

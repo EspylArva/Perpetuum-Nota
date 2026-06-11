@@ -79,7 +79,7 @@
       <div class="list-layout" [class.split]="openId()">
         <aside class="rows" cdkDropList (cdkDropListDropped)="drop($event)">
           @for (n of notes(); track n.id) {
-            <div class="row" cdkDrag [cdkDragDisabled]="!canReorder()" [class.open]="n.id === openId()" [class.checked]="isSelected(n.id)">
+            <div class="row" cdkDrag [cdkDragDisabled]="!canReorder() || !n.isOwner" [class.open]="n.id === openId()" [class.checked]="isSelected(n.id)">
               @if (!inTrash()) {
                 <input type="checkbox" [checked]="isSelected(n.id)"
                        (click)="$event.stopPropagation()" (change)="toggleSelect(n.id)" />
@@ -104,7 +104,7 @@
                   <button class="pin" [class.pinned]="n.pinned" [title]="n.pinned ? 'Unpin' : 'Pin'"
                           (click)="togglePin(n, $event)">📌</button>
                 }
-                @if (canReorder()) {
+                @if (canReorder() && n.isOwner) {
                   <button class="drag-handle" cdkDragHandle title="Drag to reorder">⠿</button>
                 }
                 @if (n.isOwner) {
@@ -163,7 +163,7 @@
     @if (mode() === 'wall' && !inTrash()) {
       <div class="wall" cdkDropList cdkDropListOrientation="mixed" (cdkDropListDropped)="drop($event)">
         @for (n of notes(); track n.id) {
-          <article class="card" cdkDrag [cdkDragDisabled]="!canReorder()" [class.checked]="isSelected(n.id)" (click)="open(n.id)">
+          <article class="card" cdkDrag [cdkDragDisabled]="!canReorder() || !n.isOwner" [class.checked]="isSelected(n.id)" (click)="open(n.id)">
             <input type="checkbox" class="card-check" [checked]="isSelected(n.id)"
                    (click)="$event.stopPropagation()" (change)="toggleSelect(n.id)" />
             @if (n.isOwner) {

@@ -48,6 +48,18 @@ export class OpenNotesStore {
     }
   }
 
+  /**
+   * Drops all cached entries and pending saves. MUST be called on login and
+   * logout: the store is root-scoped, so without this a second account in the
+   * same SPA lifetime would read the previous account's cached note content
+   * (and skip the server fetch that marks share grants as seen).
+   */
+  clear(): void {
+    for (const timer of this.timers.values()) clearTimeout(timer);
+    this.timers.clear();
+    this.notes.clear();
+  }
+
   /** Returns the entry, creating an empty one if needed. */
   entry(noteId: string): OpenNote {
     let n = this.notes.get(noteId);

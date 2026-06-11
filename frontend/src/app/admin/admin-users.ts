@@ -64,18 +64,29 @@ export class AdminUsers implements OnInit {
   }
 
   setActive(u: UserAdminDto, isActive: boolean): void {
-    this.api.update(u.id, { isActive }).subscribe((updated) =>
-      this.users.update((list) =>
-        list.map((x) => (x.id === u.id ? updated : x)),
-      ),
-    );
+    this.error.set(null);
+    this.api.update(u.id, { isActive }).subscribe({
+      next: (updated) =>
+        this.users.update((list) =>
+          list.map((x) => (x.id === u.id ? updated : x)),
+        ),
+      error: (e) => this.onUpdateError(e),
+    });
   }
 
   setRole(u: UserAdminDto, role: Role): void {
-    this.api.update(u.id, { role }).subscribe((updated) =>
-      this.users.update((list) =>
-        list.map((x) => (x.id === u.id ? updated : x)),
-      ),
-    );
+    this.error.set(null);
+    this.api.update(u.id, { role }).subscribe({
+      next: (updated) =>
+        this.users.update((list) =>
+          list.map((x) => (x.id === u.id ? updated : x)),
+        ),
+      error: (e) => this.onUpdateError(e),
+    });
+  }
+
+  private onUpdateError(e: { error?: { message?: string } }): void {
+    this.error.set(e?.error?.message ?? 'Could not update the user.');
+    this.refresh(); // revert the select/row to server state
   }
 }

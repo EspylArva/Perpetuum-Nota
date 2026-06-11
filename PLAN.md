@@ -141,7 +141,13 @@ Verified:
 - **Prod (single URL):** `cp .env.example .env` (edit secrets) → `docker compose up --build` → open `http://localhost:8080`. Admin is seeded from `ADMIN_EMAIL`/`ADMIN_PASSWORD`.
 - **Native dev:** `docker compose -f docker-compose.dev.yml up -d` (Postgres) → `npm run dev:api` + `npm run dev:web`.
 
-### Known follow-ups (non-blocking)
-- Orphaned image-file cleanup (DB cascade removes `ImageAsset` rows; files on the volume + images removed from a doc body still need a sweep).
-- Autosave is last-write-wins; the optimistic-concurrency guard (`baseContentUpdatedAt`) exists in the DTO but isn't enforced from the client yet.
-- `dev`/`prod` stacks share `JWT_SECRET` in the committed `.env`; use distinct secrets per environment in real deployments.
+### Known follow-ups — all resolved 2026-06-11
+- ~~Orphaned image-file cleanup~~ → maintenance sweep (trash purge 30d, unreferenced assets 7d grace, orphan files 24h grace).
+- ~~Autosave last-write-wins~~ → client sends `baseContentUpdatedAt`, server enforces atomically (409), editor offers Load-latest / Keep-mine.
+- `.env` is gitignored (was never committed); dev values remain dev-only — still generate unique secrets per real deployment.
+
+### Post-MVP additions (2026-06-11)
+Trash + restore, full-text search (Postgres FTS), tags, pins, sort options,
+checklists, note duplication, export-as-HTML, shared-with-me view + unseen
+badge, self-service password change, break-glass admin reset, last-admin
+guard, access-matrix e2e suite. Details in REVIEW.md.

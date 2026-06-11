@@ -1,5 +1,11 @@
 # Dev override: run ONLY Postgres in Docker (exposed on localhost:5432),
 # while you run the NestJS API and Angular app natively for fast reloads.
+#
+# `name:` keeps this stack in its own compose project. Without it, this file
+# and docker-compose.yml share the project namespace derived from the folder
+# ("stickynotes"), and bringing one up RECREATES the other's `db` container.
+name: stickynotes-dev
+
 services:
   db:
     image: postgres:16-alpine

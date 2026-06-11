@@ -2,19 +2,25 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import type { UserDto } from '@stickynotes/shared';
+import { OpenNotesStore } from '../editor/open-notes.store';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
+  private readonly openNotes = inject(OpenNotesStore);
 
   private readonly _user = signal<UserDto | null>(null);
   readonly user = this._user.asReadonly();
   readonly isAuthenticated = computed(() => this._user() !== null);
 
   login(email: string, password: string): Observable<UserDto> {
-    return this.http
-      .post<UserDto>('/api/auth/login', { email, password })
-      .pipe(tap((u) => this._user.set(u)));
+    return this.http.post<UserDto>('/api/auth/login', { email, password }).pipe(
+      tap((u) => {
+        // Never serve another account's cached note state.
+        this.openNotes.clear();
+        this._user.set(u);
+      }),
+    );
   }
 
   /** Hydrates currentUser from the session cookie; errors if not authenticated. */
@@ -25,9 +31,12 @@ export class AuthService {
   }
 
   logout(): Observable<unknown> {
-    return this.http
-      .post('/api/auth/logout', {})
-      .pipe(tap(() => this._user.set(null)));
+    return this.http.post('/api/auth/logout', {}).pipe(
+      tap(() => {
+        this.openNotes.clear();
+        this._user.set(null);
+      }),
+    );
   }
 
   changePassword(

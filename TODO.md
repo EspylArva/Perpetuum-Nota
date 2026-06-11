@@ -50,8 +50,8 @@ Produce `docker-compose.nas.yml` (kept separate from the dev/build compose):
 - [ ] Wire **storage** per the decision (bind-mounts to the NAS path, or named volumes).
 - [ ] Pin image **versions** (no floating `latest` in prod).
 - [ ] Keep `db` **not** published to the host; only `web` exposes a port.
-- [ ] Healthchecks on `db` (have it) **and** `api` (add `/api/health` check) so
-      `web`/`api` start ordering is correct on a cold NAS boot.
+- [x] Healthchecks on `db` (have it) **and** `api` — added 2026-06-11 to the main
+      compose (`/api/health` + `web` waits on api healthy); copy into the NAS compose.
 - [ ] `restart: unless-stopped` on all services (have it).
 - [ ] Resource limits (optional but kind to a NAS): modest mem limits per service.
 
@@ -86,5 +86,7 @@ Produce `docker-compose.nas.yml` (kept separate from the dev/build compose):
   handles this when `--platform` is set correctly.
 - `db` port is internal-only; `/api/uploads/*` is proxied through nginx (permission-checked),
   never served as a static alias — keep that in the NAS compose.
-- Unrelated to deploy but still open from the review: PR 2 (access-matrix/IDOR test, admin
-  password recovery, autosave-409, backups) and PR 3 (shared-with-me, trash/undo). See REVIEW.md.
+- ~~PR 2 / PR 3 from the review~~ — **done 2026-06-11** (access-matrix e2e, break-glass
+  admin reset, password change, autosave-409, BACKUP.md, shared-with-me, trash, mobile),
+  plus search/tags/pins/checklists/duplicate/export. See REVIEW.md.
+- The NAS `.env` additionally supports `ADMIN_FORCE_PASSWORD_RESET` (break-glass; see BACKUP.md).

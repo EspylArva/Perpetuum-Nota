@@ -56,21 +56,25 @@ Make it safe to expose at a URL. **All items implemented and verified** (6/6 aut
 
 > **Implementation note (gotcha for future work):** in this npm-workspaces layout `@nestjs/core` hoists to the repo root while `@nestjs/platform-express` resolves from `backend/node_modules`, so `NestFactory.create`'s auto HTTP-driver detection fails (`No driver (HTTP) has been selected`). Fixed by passing `new ExpressAdapter()` explicitly in `main.ts`. Also: deleting `node_modules` requires a `prisma generate` afterward (the generated client is what exports `Role`/`Visibility`/etc.).
 
-### PR 2 — "Don't lose my data / don't lock me out" (target: 1–2 days)
-The failures most likely to actually happen.
+### PR 2 — "Don't lose my data / don't lock me out" ✅ DONE (2026-06-11)
 
-- [ ] **Access-matrix e2e test** — owner / non-owner / PUBLIC / shared × view/edit/delete across notes **and** images (IDOR guard). This is the highest-value test in the codebase.
-- [ ] **Admin self-recovery** — make admin bootstrap obvious + a documented break-glass reset (CLI/env) so a forgotten admin password doesn't brick the instance.
-- [ ] **Self-service password change** for logged-in users.
-- [ ] **Autosave 409** — client sends the existing `baseContentUpdatedAt`; server enforces optimistic concurrency and the editor handles the conflict. (Stops silent self-clobber across two tabs.)
-- [ ] **Backups** — documented `pg_dump` + uploads-volume snapshot (a README section + a sample cron). Do this the day real notes go in.
+- [x] **Access-matrix e2e test** — `backend/test/access-matrix.e2e-spec.ts` (32 tests): owner / grantee / stranger × view/edit/delete/restore/duplicate across notes **and** images, trash visibility, revocation, public→private flips, deactivated-user cutoff. Runs in an isolated `e2e` schema.
+- [x] **Admin self-recovery** — `ADMIN_FORCE_PASSWORD_RESET=true` break-glass reset (bootstrap), documented in BACKUP.md; plus a **last-admin lockout guard** (409 on deactivating/demoting the last active admin).
+- [x] **Self-service password change** — `POST /api/auth/change-password` (throttled 5/min) + dialog in the header.
+- [x] **Autosave 409** — client sends `baseContentUpdatedAt`; server enforces it atomically (`updateMany` conditional write); editor shows a conflict banner with "Load latest" / "Keep mine".
+- [x] **Backups** — BACKUP.md: paired `pg_dump` + uploads-volume tar, sample cron, full restore procedure, retention note.
 
-### PR 3 — "Make sharing real & deletion safe" (target: 2–3 days)
-Close the UX gaps that make headline features feel broken.
+### PR 3 — "Make sharing real & deletion safe" ✅ DONE (2026-06-11)
 
-- [ ] **"Shared with me" view** + a notification/badge so a share recipient actually discovers the note (today sharing is invisible to the recipient).
-- [ ] **Trash / recycle bin** (soft-delete, restore ~30 days) — this *also* cleanly solves orphaned-image cleanup: purge files only when the note is permanently deleted, plus a periodic sweep for unreferenced assets.
-- [ ] **Mobile read-friendliness** pass on the manager + editor.
+- [x] **"Shared with me" view** — sidebar entry + unseen-count badge (`NoteShare.seenAt`, set when the recipient opens the note); "New" badge on unopened shares.
+- [x] **Trash / recycle bin** — soft delete (`Note.deletedAt`), restore, delete-forever, empty-trash; 12-hourly sweep purges trash >30 days, drops note-body-unreferenced image assets (7-day grace) and orphaned disk files (24h grace). Trashed notes are invisible (and their images 404) to everyone but the owner.
+- [x] **Mobile pass** — off-canvas sidebar <900px, single-pane editor <768px, full-screen wall modal, larger touch targets.
+
+### Also shipped beyond the council list (2026-06-11, Evernote-parity)
+- **Full-text search** — `Note.contentText` extracted at write time, GIN FTS index (`websearch_to_tsquery` + ILIKE fallback), debounced search box. Search results respect the access predicate (covered by e2e).
+- **Tags** — owner-scoped, create-on-use, case-insensitive dedupe, auto-pruned when unused; sidebar filter with counts; chips in list/wall/editor.
+- **Pinned notes**, **sort options** (custom/edited/created/title, persisted), **checklists** (TipTap task lists), **strikethrough**, **note duplication** (image files copied, visibility reset PRIVATE), **export as HTML**.
+- **Fixes from this review pass:** non-owner editor was editable (silent 403 autosave loop) — now read-only with disabled title; CSRF cookie `secure` flag now follows `req.secure`; JWT_SECRET fail-fast in production; non-doc content returns 400 (was 409); flush-on-tab-hide so the last <900ms of typing isn't lost.
 
 ### Deferred (record, don't build yet)
 - **Server-side ProseMirror schema validation** — low payoff for trusted authors once render sanitization is in; revisit when authors are untrusted or an API is exposed.

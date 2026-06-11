@@ -25,6 +25,7 @@ services:
       CSRF_SECRET: ${CSRF_SECRET:-${JWT_SECRET}}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_FORCE_PASSWORD_RESET: ${ADMIN_FORCE_PASSWORD_RESET:-}
       UPLOADS_DIR: ${UPLOADS_DIR:-/data/uploads}
       NODE_ENV: production
       PORT: 3000
@@ -33,6 +34,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      # 127.0.0.1, not localhost: Alpine resolves localhost to ::1 first and the
+      # app binds 0.0.0.0 (IPv4), so busybox wget would get connection-refused.
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   web:
     build:
@@ -42,7 +51,8 @@ services:
     ports:
       - "${WEB_PORT:-8080}:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   pgdata:
