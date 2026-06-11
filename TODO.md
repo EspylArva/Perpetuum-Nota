@@ -18,7 +18,7 @@ production hardening touches.
 
 ---
 
-## 0. Decisions needed first (blockers — answer these and the rest is mechanical)
+### 0. Decisions needed first (blockers — answer these and the rest is mechanical)
 
 - [ ] **CPU architecture of the NAS** → determines what we build.
   - ARM64/aarch64, amd64/x86_64, or multi-arch.
@@ -36,7 +36,7 @@ production hardening touches.
 
 ---
 
-## 1. Build the images for the NAS architecture
+### 1. Build the images for the NAS architecture
 
 - [ ] Ensure Docker Buildx is available (for cross-arch builds from this amd64 PC).
 - [ ] Build `stickynotes-api` and `stickynotes-web` for the chosen `--platform`
@@ -45,13 +45,13 @@ production hardening touches.
 - [ ] **Verify the arch** of the produced images (`docker image inspect ... Architecture`)
       — an arch mismatch is the #1 "exec format error" failure on NAS.
 
-## 2. Deliver images to the NAS (per the decision above)
+### 2. Deliver images to the NAS (per the decision above)
 
 - [ ] **Tarball path:** `docker save` both images → `.tar` (or one combined), write a
       short `load-images.sh`, document the copy + `docker load` steps.
 - [ ] **Registry path:** tag for the registry, `docker push`, document `docker compose pull`.
 
-## 3. Production compose file for the NAS
+### 3. Production compose file for the NAS
 
 Produce `docker-compose.nas.yml` (kept separate from the dev/build compose):
 
@@ -64,7 +64,7 @@ Produce `docker-compose.nas.yml` (kept separate from the dev/build compose):
 - [ ] `restart: unless-stopped` on all services (have it).
 - [ ] Resource limits (optional but kind to a NAS): modest mem limits per service.
 
-## 4. Production configuration & secrets
+### 4. Production configuration & secrets
 
 - [ ] Create a real `.env` for the NAS from `.env.example` with **strong, unique**
       `JWT_SECRET` and `CSRF_SECRET` (the generator one-liner is in `.env.example`),
@@ -74,14 +74,14 @@ Produce `docker-compose.nas.yml` (kept separate from the dev/build compose):
       confirm it forwards `X-Forwarded-Proto: https` (or add HSTS in nginx then).
 - [ ] Confirm `WEB_PORT` doesn't collide with other NAS services (DSM uses 5000/5001, etc.).
 
-## 5. First-run on the NAS
+### 5. First-run on the NAS
 
 - [ ] `docker compose -f docker-compose.nas.yml up -d`.
 - [ ] Confirm the api entrypoint runs `prisma migrate deploy` and seeds the admin on first boot.
 - [ ] Smoke test: load the URL, log in as admin, create a note, paste an image, reload.
 - [ ] Confirm data survives a `down`/`up` (volume/bind-mount persistence) and a NAS reboot.
 
-## 6. Docs
+### 6. Docs
 
 - [ ] `DEPLOY.md` (or a README section): exact NAS steps — load/pull images, place `.env`,
       `up -d`, where data lives, how to back it up, how to update to a new version.
@@ -165,8 +165,114 @@ decisions.
 - [ ] Moving a note (left-click on note + drag) must not open the note editor. (CDK
       suppresses the click after a real drag; verify the under-threshold micro-drag case
       and suppress open on any movement.)
+- [ ] Folders appear on the grid with the number of notes they contain. Double clicking 
+      a folder opens it. Opened folder are displayed in a window with a close button and
+      a similar grid. 
 
 ### Admin panel
 - [ ] Temp password can be auto-generated in the create-user form.
 - [ ] Reset password for an existing user (admin sets/generates a new temp password —
       complements the self-service change and the env break-glass).
+
+---
+
+## Ideas from other note apps (researched 2026-06-12 — NOT implemented)
+
+Surveyed: Notesnook, Trilium, Synology Note Station, Joplin (3.x), Obsidian (incl. 2025
+"Bases"), Evernote (incl. v11, Jan 2026). Only features that exist in none of our app and
+aren't already in the backlog above; app names in parentheses credit the inspiration.
+Cross-references marked ↔ where an idea pairs with an existing backlog item.
+
+### Capture, import & export
+- [ ] **Web clipper** browser extension — clip a page, selection, or screenshot into a
+      note (Evernote, Joplin, Notesnook, Trilium, Note Station — the one capture feature
+      every surveyed app has). Needs a token-based API auth path for the extension.
+- [ ] **Importers**: Evernote `.enex`, Joplin JEX, Obsidian/markdown folder → notes with
+      tags/images mapped (every app; Notesnook ships a dedicated importer). Biggest
+      switching-cost killer for new users.
+- [ ] **Full-vault export** to a markdown or HTML zip (complements per-note export and
+      BACKUP.md; every surveyed app has an all-data export — useful as a no-lock-in
+      guarantee).
+- [ ] **Audio attachments + voice typing** (Joplin 3.3 audio recordings, 3.4 Whisper-based
+      voice typing; Note Station audio notes). Voice typing only if a local/offline model
+      is feasible — no cloud STT.
+- [ ] Email-to-note inbox (Evernote) — niche for a LAN NAS deployment; record only.
+
+### Files & search depth
+- [ ] **Arbitrary file attachments** (PDF, docs, zip…) served through the same
+      permission-checked endpoint as images (all surveyed apps; we are images-only).
+- [ ] **OCR**: extract text from images/PDF attachments into `contentText` so search finds
+      it (Evernote; Joplin, which is even moving toward handwriting/HTR). Server-side
+      tesseract — watch CPU/RAM cost on a NAS.
+- [ ] **Search operators**: `tag:x`, `in:trash`, `is:pinned`, `has:image`,
+      `before:/after:` (Joplin/Evernote/Trilium all have a search DSL; ↔ backlog
+      min/max-date filter).
+- [ ] **Saved searches** pinned to the sidebar (Trilium Saved Search, Note Station smart
+      notebooks) — any filter+query combination becomes a named view.
+- [ ] Semantic search over notes (Evernote v11 headline) — only viable self-hosted via
+      local embeddings + pgvector; record as optional/heavy.
+
+### Organization & metadata
+- [ ] **Note version history** with restore + diff view (Evernote history, Trilium
+      revisions, Joplin note history, Notesnook session history, Note Station versioning
+      — universal among surveyed apps, and the natural extension of our autosave-409
+      machinery; snapshot on save-debounce with retention).
+- [ ] **Per-note colors** (Notesnook) — very fitting for a sticky-notes wall; needs a
+      dark-theme-aware palette mapping rather than raw hex.
+- [ ] **Reminders/notifications** for notes (Evernote reminders, Notesnook recurring
+      reminders, Joplin alarms) — ↔ backlog due dates: due date is the data, this is the
+      delivery (web push / in-app toast; recurring optional).
+- [ ] **Note templates** (Evernote, Obsidian templates + variables, Trilium template
+      notes) — a note is already seed JSON (PLAN.md noted this); add a "save as
+      template" + "new from template" flow.
+- [ ] **Daily notes / journal** entry point: one keystroke opens today's note, created on
+      demand (Obsidian daily notes, Trilium day notes; ↔ backlog calendar).
+- [ ] **Custom note properties** (key:value) shown in a panel and queryable (Trilium
+      attributes, Obsidian properties); the maximal version is an Obsidian-Bases-style
+      **table/database view** over notes filtered by properties (Obsidian 1.9, 2025).
+- [ ] Bookmarks/shortcuts sidebar section for favorite notes, tags, and saved searches
+      (Evernote shortcuts, Obsidian bookmarks) — distinct from pinning (which sorts).
+
+### Editor
+- [ ] **Tables** (TipTap Table extension) — every surveyed app has tables; we have none
+      and it's not in the backlog above.
+- [ ] **Mermaid diagrams** from fenced code blocks (Trilium, Obsidian, Joplin plugin) —
+      text-to-diagram, renders fully offline.
+- [ ] **Slash commands** (`/` insert menu: heading, list, table, image, date…) including
+      dynamic date mentions like `@Today` (Evernote v11 added 16 slash commands; Notion
+      pattern).
+- [ ] **Outline/TOC panel** generated from headings, click-to-scroll (Obsidian outline).
+- [ ] Markdown source mode toggle per note (Joplin dual editor) — power-user escape hatch;
+      our storage stays ProseMirror JSON, so this is a converter, not a new format.
+- [ ] Editor extras: callouts/admonitions and footnotes (Obsidian 1.9 ships a footnotes
+      view) — record; prioritize behind the backlog formatting items.
+
+### Security & privacy
+- [ ] **Per-note vault**: lock individual notes with a password, client-side encrypted,
+      auto-relock after inactivity (Notesnook vault, Trilium protected notes, Note
+      Station encryption). Server stores ciphertext for vaulted notes — search and
+      previews must gracefully exclude them.
+- [ ] App lock: require re-auth after N minutes idle (Notesnook app lock) — cheap privacy
+      win on shared machines, independent of the JWT lifetime.
+
+### Sharing & collaboration
+- [ ] **Publish to public link** ("monograph": Notesnook monographs, Obsidian Publish) —
+      optional password, expiry, or view-once self-destruct. ⚠ PLAN.md deliberately
+      excluded anonymous links from the MVP threat model; adopting this requires a
+      conscious decision + rate limiting and abuse controls on the public endpoint.
+- [ ] Comments on shared notes (Note Station) — lets grantees give feedback without
+      edit rights (which stay owner-only today).
+- [ ] Presentation mode: render a note as slides (Note Station, classic Evernote) — low
+      priority, pairs well with H1/H2 structure.
+- Real-time co-editing (Yjs) is already recorded as the headline v2 bet in REVIEW.md —
+  not duplicated here.
+
+### Wall / canvas
+- [ ] **Edges between wall cards**: draw labeled arrows/connections card-to-card,
+      Obsidian-Canvas-style (canvas connections now even feed Obsidian's graph) —
+      ↔ backlog graph view and `[[wikilinks]]`; the wall already has the spatial half.
+
+### AI (record only — self-hosted constraint)
+- [ ] Evernote v11 ships an AI assistant, semantic search, and AI meeting notes. For this
+      app, any AI feature should be opt-in and local-model-only (no data leaves the NAS);
+      otherwise out of scope.
