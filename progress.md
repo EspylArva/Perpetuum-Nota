@@ -26,7 +26,15 @@
   rewrite, REVIEW PR2/PR3 marked done, TODO cross-refs updated, PLAN follow-ups resolved,
   .env(.example) ADMIN_FORCE_PASSWORD_RESET + CSRF_SECRET, compose passes the flag + api
   healthcheck (web waits on healthy api).
-- Currently: `docker compose up --build -d` running → Playwright golden path next.
+- Docker stack built + Playwright golden path PASSED (details in task_plan.md Phase 8).
+  Live verification caught 3 real issues, all fixed + committed (`5ca0478`):
+  (1) OpenNotesStore cached across logout/login → second account saw first account's
+      note state and share-seen never fired — store cleared on auth changes;
+  (2) api healthcheck used `localhost` → Alpine resolves ::1, Node binds IPv4 → 127.0.0.1;
+  (3) docker-compose.dev.yml shared the prod project namespace → `name: stickynotes-dev`.
+- Post-fix re-verification: badge flow green in browser; 18+32 backend tests green against
+  a from-zero migrated dev DB; frontend 7/7 + build green.
+- Session complete. 4 commits, working tree clean. Prod stack left running on :8080.
 
 ## Errors encountered
 | Error | Resolution |

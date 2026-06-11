@@ -59,11 +59,24 @@ predicted, (4) review/correct architecture, (5) implement missing planned featur
 - [x] Note duplication (copies image files, resets PRIVATE)
 - [x] Export note as standalone HTML (client-side)
 
-### Phase 8: Verification + docs — Status: in_progress
-- [x] Backend: tsc clean; 18 unit + 32 e2e green
+### Phase 8: Verification + docs — Status: complete
+- [x] Backend: tsc clean; 18 unit + 32 e2e green (re-verified against a from-zero migrated DB)
 - [x] Frontend: build green; 7/7 vitest green (fixed @angular/compiler hoisting + stale scaffold spec)
-- [ ] Docker stack golden path via Playwright (search, tags, pin, trash, share badge, 409 banner)
-- [ ] BACKUP.md + README/PLAN/REVIEW/TODO status updates + .env CSRF_SECRET
+- [x] Docker stack golden path via Playwright — login, create, type, task list, tag (chip+
+      sidebar+count), pin, FTS search by body text, trash→restore (tag count 0→1),
+      share→Maya badge "1"→"New" chip→read-only editor→badge clears on open,
+      conflict: second-window PATCH → typing → 409 banner → "Load latest" applies server copy,
+      export downloads real HTML file, wall view screenshot, password dialog, last-admin
+      Disable → 409 (now surfaced in UI)
+- [x] BACKUP.md + README/PLAN/REVIEW/TODO updates + .env CSRF_SECRET + compose healthcheck
+- [x] Live-verification bugs fixed: cross-account OpenNotesStore cache (B11), api healthcheck
+      localhost→127.0.0.1 (Alpine ::1), dev/prod compose project-name collision
+
+## Final state (2026-06-11)
+- Commits: 9a31d9a (baseline) → 046056f (backend) → 065531c (frontend) → 5ca0478 (fixes+docs)
+- Both stacks coexist: prod on :8080 (left running), dev Postgres on :5432 (project stickynotes-dev)
+- All REVIEW.md PR 2 + PR 3 items closed; Evernote-parity features shipped
+- Remaining (user-blocked): TODO.md NAS deployment decisions (arch, delivery, storage, TLS)
 
 ## Key decisions
 | Decision | Choice | Why |
