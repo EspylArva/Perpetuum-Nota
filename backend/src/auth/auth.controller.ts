@@ -14,6 +14,15 @@ import type { AuthenticatedUser } from './types';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
+// Brute-force limit for password-bearing endpoints: 5/min/IP in real runs,
+// effectively unlimited under test (the e2e suite logs in many personas).
+const PASSWORD_THROTTLE = {
+  default: {
+    ttl: 60_000,
+    limit: process.env.NODE_ENV === 'test' ? 100_000 : 5,
+  },
+};
+
 type UserLike = {
   id: string;
   email: string;
@@ -42,7 +51,7 @@ export class AuthController {
 
   @Public()
   // Tight brute-force limit on login: 5 attempts / minute / IP.
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @Throttle(PASSWORD_THROTTLE)
   @Post('login')
   @HttpCode(200)
   async login(
@@ -82,7 +91,7 @@ export class AuthController {
   }
 
   // Same brute-force posture as login: the current password is being guessed.
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @Throttle(PASSWORD_THROTTLE)
   @Post('change-password')
   @HttpCode(200)
   async changePassword(

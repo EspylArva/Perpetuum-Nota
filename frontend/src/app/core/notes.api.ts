@@ -1,20 +1,39 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import type {
   NoteDto,
   NoteFilter,
   NoteSharesDto,
+  NoteSort,
   NoteSummaryDto,
+  SharedBadgeDto,
   Visibility,
 } from '@stickynotes/shared';
+
+export interface ListQuery {
+  filter?: NoteFilter;
+  q?: string;
+  tag?: string;
+  sort?: NoteSort;
+}
 
 @Injectable({ providedIn: 'root' })
 export class NotesApi {
   private readonly http = inject(HttpClient);
 
-  list(filter: NoteFilter = 'all'): Observable<NoteSummaryDto[]> {
-    return this.http.get<NoteSummaryDto[]>(`/api/notes?filter=${filter}`);
+  list(query: ListQuery = {}): Observable<NoteSummaryDto[]> {
+    let params = new HttpParams().set('filter', query.filter ?? 'all');
+    if (query.q) params = params.set('q', query.q);
+    if (query.tag) params = params.set('tag', query.tag);
+    if (query.sort && query.sort !== 'position') {
+      params = params.set('sort', query.sort);
+    }
+    return this.http.get<NoteSummaryDto[]>('/api/notes', { params });
+  }
+
+  sharedBadge(): Observable<SharedBadgeDto> {
+    return this.http.get<SharedBadgeDto>('/api/notes/shared-badge');
   }
 
   create(title?: string): Observable<NoteSummaryDto> {
@@ -28,19 +47,48 @@ export class NotesApi {
   updateContent(
     id: string,
     content: unknown,
+    baseContentUpdatedAt?: string | null,
   ): Observable<{ contentUpdatedAt: string }> {
     return this.http.patch<{ contentUpdatedAt: string }>(
       `/api/notes/${id}/content`,
-      { content },
+      baseContentUpdatedAt ? { content, baseContentUpdatedAt } : { content },
     );
   }
 
-  updateMeta(id: string, title: string): Observable<NoteSummaryDto> {
-    return this.http.patch<NoteSummaryDto>(`/api/notes/${id}`, { title });
+  updateMeta(
+    id: string,
+    patch: { title?: string; pinned?: boolean },
+  ): Observable<NoteSummaryDto> {
+    return this.http.patch<NoteSummaryDto>(`/api/notes/${id}`, patch);
   }
 
-  remove(id: string): Observable<{ id: string }> {
-    return this.http.delete<{ id: string }>(`/api/notes/${id}`);
+  /** Soft delete — moves the note to trash. */
+  remove(id: string): Observable<{ id: string; deletedAt: string }> {
+    return this.http.delete<{ id: string; deletedAt: string }>(
+      `/api/notes/${id}`,
+    );
+  }
+
+  restore(id: string): Observable<NoteSummaryDto> {
+    return this.http.post<NoteSummaryDto>(`/api/notes/${id}/restore`, {});
+  }
+
+  removePermanently(id: string): Observable<{ id: string }> {
+    return this.http.delete<{ id: string }>(`/api/notes/${id}/permanent`);
+  }
+
+  emptyTrash(): Observable<{ deleted: string[] }> {
+    return this.http.post<{ deleted: string[] }>('/api/notes/trash/empty', {});
+  }
+
+  duplicate(id: string): Observable<NoteSummaryDto> {
+    return this.http.post<NoteSummaryDto>(`/api/notes/${id}/duplicate`, {});
+  }
+
+  setTags(id: string, names: string[]): Observable<{ tags: string[] }> {
+    return this.http.put<{ tags: string[] }>(`/api/notes/${id}/tags`, {
+      names,
+    });
   }
 
   batchDelete(ids: string[]): Observable<{ deleted: string[] }> {

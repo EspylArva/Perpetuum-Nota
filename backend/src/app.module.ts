@@ -18,8 +18,14 @@ import { UsersModule } from './users/users.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     // Global default: 100 requests / minute / IP. Login is throttled tighter
-    // via @Throttle on the route itself.
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    // via @Throttle on the route itself. The e2e suite fires hundreds of
+    // requests from one IP, so limits are effectively lifted under test.
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000,
+        limit: process.env.NODE_ENV === 'test' ? 100_000 : 100,
+      },
+    ]),
     PrismaModule,
     CommonModule,
     AuthModule,

@@ -32,23 +32,32 @@ import { isSafeLinkUrl } from './safe-url';
 export class NoteEditor implements OnInit, OnDestroy {
   readonly noteId = input.required<string>();
   readonly editable = input(true);
+  /** Filename stem for "Export HTML" (usually the note title). */
+  readonly exportName = input<string>('note');
 
   private readonly store = inject(OpenNotesStore);
   private readonly uploads = inject(UploadsApi);
   private readonly injector = inject(Injector);
 
   editor!: Editor;
-  private entry!: OpenNote;
-  private loadedIntoEditor = false;
+  protected entry!: OpenNote;
+  private appliedServerVersion = 0;
   private suppressUpdate = false;
 
   private readonly tick = signal(0);
 
   readonly status = computed(() => {
     void this.tick();
+    if (this.entry?.conflict()) return 'Conflict';
     if (this.entry?.saving()) return 'Saving…';
+    if (this.entry?.saveError()) return 'Save failed — retrying on next edit';
     if (this.entry?.dirty()) return 'Unsaved changes';
     return this.entry?.loaded() ? 'Saved' : 'Loading…';
+  });
+
+  readonly conflicted = computed(() => {
+    void this.tick();
+    return this.entry?.conflict() ?? false;
   });
 
   ngOnInit(): void {
@@ -70,11 +79,19 @@ export class NoteEditor implements OnInit, OnDestroy {
       onTransaction: () => this.tick.update((v) => v + 1),
     });
 
+    // Apply content into the editor whenever the STORE got a fresh server copy
+    // (initial load, conflict reload) — local edits don't bump serverVersion,
+    // so typing never round-trips through setContent.
     effect(
       () => {
+        const version = this.entry.serverVersion();
         const content = this.entry.content();
-        if (content && this.entry.loaded() && !this.loadedIntoEditor) {
-          this.loadedIntoEditor = true;
+        if (
+          content &&
+          this.entry.loaded() &&
+          version !== this.appliedServerVersion
+        ) {
+          this.appliedServerVersion = version;
           this.suppressUpdate = true;
           this.editor.commands.setContent(content as JSONContent);
           this.suppressUpdate = false;
@@ -87,6 +104,15 @@ export class NoteEditor implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.store.flush(this.noteId());
     this.editor?.destroy();
+  }
+
+  // --- conflict resolution ---
+  reloadServerCopy(): void {
+    this.store.reload(this.noteId());
+  }
+
+  keepMine(): void {
+    this.store.overwrite(this.noteId());
   }
 
   /** Uploads any image files from a paste/drop and inserts them; returns true if handled. */
@@ -124,6 +150,9 @@ export class NoteEditor implements OnInit, OnDestroy {
   toggleUnderline(): void {
     this.editor.chain().focus().toggleUnderline().run();
   }
+  toggleStrike(): void {
+    this.editor.chain().focus().toggleStrike().run();
+  }
   toggleHeading(level: 1 | 2): void {
     this.editor.chain().focus().toggleHeading({ level }).run();
   }
@@ -132,6 +161,9 @@ export class NoteEditor implements OnInit, OnDestroy {
   }
   toggleOrderedList(): void {
     this.editor.chain().focus().toggleOrderedList().run();
+  }
+  toggleTaskList(): void {
+    this.editor.chain().focus().toggleTaskList().run();
   }
   setLink(): void {
     const prev = (this.editor.getAttributes('link')['href'] as string) ?? '';
@@ -153,4 +185,47 @@ export class NoteEditor implements OnInit, OnDestroy {
       .setLink({ href: trimmed })
       .run();
   }
+
+  /** Downloads the note as a standalone HTML file (client-side only). */
+  exportHtml(): void {
+    const title = this.exportName() || 'note';
+    const body = this.editor.getHTML();
+    const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(title)}</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; line-height: 1.55; color: #222; }
+  img { max-width: 100%; height: auto; }
+  ul[data-type="taskList"] { list-style: none; padding-left: 0.2em; }
+  ul[data-type="taskList"] li { display: flex; gap: 0.45em; align-items: baseline; }
+</style>
+</head>
+<body>
+<h1>${escapeHtml(title)}</h1>
+${body}
+</body>
+</html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${sanitizeFilename(title)}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function sanitizeFilename(s: string): string {
+  const cleaned = s.replace(/[\\/:*?"<>|]+/g, '-').trim();
+  return cleaned || 'note';
 }

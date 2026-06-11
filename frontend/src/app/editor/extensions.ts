@@ -1,12 +1,14 @@
 import type { Extensions } from '@tiptap/core';
 import { StarterKit } from '@tiptap/starter-kit';
+import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { FloatingImage } from './floating-image';
 import { ALLOWED_LINK_PROTOCOLS, isSafeLinkUrl } from './safe-url';
 
 /**
- * Shared editor extension set. StarterKit v3 bundles bold/italic/underline,
- * ordered + unordered lists, headings, history, and link — so links are
- * configured here rather than added separately.
+ * Shared editor extension set. StarterKit v3 bundles bold/italic/underline/
+ * strike, ordered + unordered lists, headings, history, and link — so links are
+ * configured here rather than added separately. Task lists (checkboxes) come
+ * from @tiptap/extension-list, which StarterKit already depends on.
  *
  * FloatingImage extends the stock Image node with a custom node view that makes
  * images both resizable (TipTap's ResizableNodeView) and free-floating: width,
@@ -27,6 +29,8 @@ export function buildExtensions(): Extensions {
         HTMLAttributes: { target: '_blank', rel: 'noopener nofollow' },
       },
     }),
+    TaskList,
+    TaskItem.configure({ nested: true }),
     FloatingImage.configure({ inline: false }),
   ];
 }

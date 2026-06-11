@@ -1,4 +1,5 @@
 <header class="bar">
+  <button class="burger" (click)="sidebarOpen.set(!sidebarOpen())" title="Menu">☰</button>
   <strong>Sticky Notes</strong>
   <span class="spacer"></span>
   @if (user(); as u) {
@@ -7,100 +8,230 @@
     }
     <span class="who">{{ u.displayName }}</span>
   }
+  <button class="ghost" (click)="showPasswordDialog.set(true)">Password</button>
   <button class="ghost" (click)="logout()">Sign out</button>
 </header>
 
-<div class="toolbar">
-  <button class="primary" (click)="create()">+ New note</button>
-  <div class="toggle" role="tablist">
-    <button [class.active]="mode() === 'list'" (click)="setView('list')">List</button>
-    <button [class.active]="mode() === 'wall'" (click)="setView('wall')">Wall</button>
-  </div>
-  <span class="spacer"></span>
-  @if (selectionCount() > 0) {
-    <button class="danger" (click)="batchDelete()">Delete ({{ selectionCount() }})</button>
-    <button class="ghost-sm" (click)="clearSelection()">Clear</button>
+<div class="layout">
+  @if (sidebarOpen()) {
+    <div class="sidebar-backdrop" (click)="sidebarOpen.set(false)"></div>
   }
-</div>
+  <nav class="sidebar" [class.open]="sidebarOpen()">
+    <button class="primary new-note" (click)="create()" [disabled]="inTrash()">+ New note</button>
+    <button class="nav-item" [class.active]="filter() === 'all' && !activeTag()" (click)="setFilter('all')">
+      <span class="ico">🗂</span> All notes
+    </button>
+    <button class="nav-item" [class.active]="filter() === 'mine'" (click)="setFilter('mine')">
+      <span class="ico">📝</span> My notes
+    </button>
+    <button class="nav-item" [class.active]="filter() === 'shared'" (click)="setFilter('shared')">
+      <span class="ico">👥</span> Shared with me
+      @if (sharedBadge() > 0) { <span class="count-badge">{{ sharedBadge() }}</span> }
+    </button>
+    <button class="nav-item" [class.active]="inTrash()" (click)="setFilter('trash')">
+      <span class="ico">🗑</span> Trash
+    </button>
 
-@if (mode() === 'list') {
-  <div class="list-layout" [class.split]="openId()">
-    <aside class="rows" cdkDropList (cdkDropListDropped)="drop($event)">
-      @for (n of notes(); track n.id) {
-        <div class="row" cdkDrag [class.open]="n.id === openId()" [class.checked]="isSelected(n.id)">
-          <input type="checkbox" [checked]="isSelected(n.id)"
-                 (click)="$event.stopPropagation()" (change)="toggleSelect(n.id)" />
-          <div class="row-main" (click)="open(n.id)">
-            <div class="row-title">
-              {{ n.title || 'Untitled' }}
-              @if (n.visibility === 'PUBLIC') { <span class="badge pub">Public</span> }
-              @if (!n.isOwner) { <span class="badge shared">Shared</span> }
-            </div>
-            <div class="row-preview">{{ n.preview || 'Empty note' }}</div>
-          </div>
-          <button class="drag-handle" cdkDragHandle title="Drag to reorder">⠿</button>
-          <button class="del" title="Delete" (click)="deleteOne(n.id); $event.stopPropagation()">🗑</button>
-        </div>
-      } @empty {
-        <p class="muted">{{ loading() ? 'Loading…' : 'No notes yet.' }}</p>
+    @if (tags().length > 0) {
+      <div class="tags-head">Tags</div>
+      @for (t of tags(); track t.id) {
+        <button class="nav-item tag-item" [class.active]="activeTag() === t.name" (click)="setTag(t.name)">
+          <span class="ico">#</span> {{ t.name }}
+          <span class="tag-count">{{ t.count }}</span>
+        </button>
       }
-    </aside>
-
-    <section class="pane">
-      @for (id of openIds(); track id) {
-        <div class="pane-head">
-          <input class="title-input" [value]="openNote()?.title || ''"
-                 (change)="rename(id, $any($event.target).value)" placeholder="Untitled" />
-          @if (openNote()?.isOwner) {
-            <button class="share-btn" (click)="openShare(id)">Share</button>
-          }
-        </div>
-        <app-note-editor [noteId]="id" />
-      } @empty {
-        <p class="empty">Select a note, or create a new one.</p>
-      }
-    </section>
-  </div>
-}
-
-@if (mode() === 'wall') {
-  <div class="wall" cdkDropList cdkDropListOrientation="mixed" (cdkDropListDropped)="drop($event)">
-    @for (n of notes(); track n.id) {
-      <article class="card" cdkDrag [class.checked]="isSelected(n.id)" (click)="open(n.id)">
-        <input type="checkbox" class="card-check" [checked]="isSelected(n.id)"
-               (click)="$event.stopPropagation()" (change)="toggleSelect(n.id)" />
-        <button class="del" title="Delete" (click)="deleteOne(n.id); $event.stopPropagation()">🗑</button>
-        <h3>{{ n.title || 'Untitled' }}</h3>
-        <p>{{ n.preview || 'Empty note' }}</p>
-        <div class="badges">
-          @if (n.visibility === 'PUBLIC') { <span class="badge pub">Public</span> }
-          @if (!n.isOwner) { <span class="badge shared">Shared</span> }
-        </div>
-      </article>
-    } @empty {
-      <p class="muted">{{ loading() ? 'Loading…' : 'No notes yet.' }}</p>
     }
-  </div>
+  </nav>
 
-  @if (openId()) {
-    <div class="modal-backdrop" (click)="closeEditor()">
-      <div class="modal" (click)="$event.stopPropagation()">
-        <div class="modal-head">
-          <input class="title-input" [value]="openNote()?.title || ''"
-                 (change)="rename(openId()!, $any($event.target).value)" placeholder="Untitled" />
-          @if (openNote()?.isOwner) {
-            <button class="share-btn" (click)="openShare(openId()!)">Share</button>
-          }
-          <button class="close" (click)="closeEditor()">✕</button>
+  <main class="content">
+    <div class="toolbar">
+      @if (!inTrash()) {
+        <input
+          class="search"
+          type="search"
+          placeholder="Search notes…"
+          [value]="q()"
+          (input)="onSearch($any($event.target).value)"
+        />
+        <select class="sort" [value]="sort()" (change)="setSort($any($event.target).value)" title="Sort order">
+          <option value="position">Custom order</option>
+          <option value="updated">Last edited</option>
+          <option value="created">Newest</option>
+          <option value="title">Title</option>
+        </select>
+        <div class="toggle" role="tablist">
+          <button [class.active]="mode() === 'list'" (click)="setView('list')">List</button>
+          <button [class.active]="mode() === 'wall'" (click)="setView('wall')">Wall</button>
         </div>
-        @for (id of openIds(); track id) {
-          <app-note-editor [noteId]="id" />
+        <span class="spacer"></span>
+        @if (selectionCount() > 0) {
+          <button class="danger" (click)="batchDelete()">Trash ({{ selectionCount() }})</button>
+          <button class="ghost-sm" (click)="clearSelection()">Clear</button>
+        }
+      } @else {
+        <span class="trash-note">Notes in the trash are deleted permanently after 30 days.</span>
+        <span class="spacer"></span>
+        <button class="danger" (click)="emptyTrash()" [disabled]="notes().length === 0">Empty trash</button>
+      }
+    </div>
+
+    @if (mode() === 'list' || inTrash()) {
+      <div class="list-layout" [class.split]="openId()">
+        <aside class="rows" cdkDropList (cdkDropListDropped)="drop($event)">
+          @for (n of notes(); track n.id) {
+            <div class="row" cdkDrag [cdkDragDisabled]="!canReorder()" [class.open]="n.id === openId()" [class.checked]="isSelected(n.id)">
+              @if (!inTrash()) {
+                <input type="checkbox" [checked]="isSelected(n.id)"
+                       (click)="$event.stopPropagation()" (change)="toggleSelect(n.id)" />
+              }
+              <div class="row-main" (click)="open(n.id)">
+                <div class="row-title">
+                  @if (n.pinned) { <span class="pin-ico" title="Pinned">📌</span> }
+                  {{ n.title || 'Untitled' }}
+                  @if (!n.seen) { <span class="badge new">New</span> }
+                  @if (n.visibility === 'PUBLIC') { <span class="badge pub">Public</span> }
+                  @if (!n.isOwner) { <span class="badge shared">Shared</span> }
+                </div>
+                <div class="row-preview">{{ n.preview || 'Empty note' }}</div>
+                @if (n.tags.length > 0) {
+                  <div class="row-tags">
+                    @for (t of n.tags; track t) { <span class="chip">#{{ t }}</span> }
+                  </div>
+                }
+              </div>
+              @if (!inTrash()) {
+                @if (n.isOwner) {
+                  <button class="pin" [class.pinned]="n.pinned" [title]="n.pinned ? 'Unpin' : 'Pin'"
+                          (click)="togglePin(n, $event)">📌</button>
+                }
+                @if (canReorder()) {
+                  <button class="drag-handle" cdkDragHandle title="Drag to reorder">⠿</button>
+                }
+                @if (n.isOwner) {
+                  <button class="del" title="Move to trash" (click)="deleteOne(n.id); $event.stopPropagation()">🗑</button>
+                }
+              } @else {
+                <button class="restore" title="Restore" (click)="restore(n.id, $event)">↩</button>
+                <button class="del" title="Delete forever" (click)="deleteForever(n.id, $event)">✕</button>
+              }
+            </div>
+          } @empty {
+            <p class="muted">{{ loading() ? 'Loading…' : (inTrash() ? 'Trash is empty.' : (q() ? 'No notes match your search.' : 'No notes yet.')) }}</p>
+          }
+        </aside>
+
+        <section class="pane">
+          @for (id of openIds(); track id) {
+            <div class="pane-head">
+              <input class="title-input" [value]="openNote()?.title || ''" [disabled]="!canEditOpen()"
+                     (change)="rename(id, $any($event.target).value)" placeholder="Untitled" />
+              @if (openNote()?.isOwner && !inTrash()) {
+                <button class="icon-btn" [class.pinned]="openNote()?.pinned" [title]="openNote()?.pinned ? 'Unpin' : 'Pin'"
+                        (click)="togglePin(openNote()!)">📌</button>
+              }
+              <button class="icon-btn" title="Duplicate" (click)="duplicate(id)">⧉</button>
+              @if (openNote()?.isOwner && !inTrash()) {
+                <button class="share-btn" (click)="openShare(id)">Share</button>
+              }
+              @if (inTrash()) {
+                <button class="share-btn" (click)="restore(id)">Restore</button>
+              }
+              <button class="icon-btn" title="Close" (click)="closeEditor()">✕</button>
+            </div>
+            @if (canEditOpen()) {
+              <div class="tag-editor">
+                @for (t of openNote()!.tags; track t) {
+                  <span class="chip editable">#{{ t }} <button (click)="removeTag(t)" title="Remove tag">✕</button></span>
+                }
+                <input
+                  class="tag-input"
+                  placeholder="Add tag…"
+                  [value]="tagDraft()"
+                  (input)="tagDraft.set($any($event.target).value)"
+                  (keydown.enter)="addTag()"
+                />
+              </div>
+            }
+            <app-note-editor [noteId]="id" [editable]="canEditOpen()" [exportName]="openNote()?.title || 'note'" />
+          } @empty {
+            <p class="empty">Select a note, or create a new one.</p>
+          }
+        </section>
+      </div>
+    }
+
+    @if (mode() === 'wall' && !inTrash()) {
+      <div class="wall" cdkDropList cdkDropListOrientation="mixed" (cdkDropListDropped)="drop($event)">
+        @for (n of notes(); track n.id) {
+          <article class="card" cdkDrag [cdkDragDisabled]="!canReorder()" [class.checked]="isSelected(n.id)" (click)="open(n.id)">
+            <input type="checkbox" class="card-check" [checked]="isSelected(n.id)"
+                   (click)="$event.stopPropagation()" (change)="toggleSelect(n.id)" />
+            @if (n.isOwner) {
+              <button class="del" title="Move to trash" (click)="deleteOne(n.id); $event.stopPropagation()">🗑</button>
+            }
+            <h3>
+              @if (n.pinned) { <span class="pin-ico" title="Pinned">📌</span> }
+              {{ n.title || 'Untitled' }}
+            </h3>
+            <p>{{ n.preview || 'Empty note' }}</p>
+            @if (n.tags.length > 0 || n.visibility === 'PUBLIC' || !n.isOwner || !n.seen) {
+              <div class="badges">
+                @if (!n.seen) { <span class="badge new">New</span> }
+                @if (n.visibility === 'PUBLIC') { <span class="badge pub">Public</span> }
+                @if (!n.isOwner) { <span class="badge shared">Shared</span> }
+                @for (t of n.tags; track t) { <span class="chip">#{{ t }}</span> }
+              </div>
+            }
+          </article>
+        } @empty {
+          <p class="muted">{{ loading() ? 'Loading…' : (q() ? 'No notes match your search.' : 'No notes yet.') }}</p>
         }
       </div>
-    </div>
-  }
-}
+
+      @if (openId()) {
+        <div class="modal-backdrop" (click)="closeEditor()">
+          <div class="modal" (click)="$event.stopPropagation()">
+            <div class="modal-head">
+              <input class="title-input" [value]="openNote()?.title || ''" [disabled]="!canEditOpen()"
+                     (change)="rename(openId()!, $any($event.target).value)" placeholder="Untitled" />
+              @if (openNote()?.isOwner) {
+                <button class="icon-btn" [class.pinned]="openNote()?.pinned" [title]="openNote()?.pinned ? 'Unpin' : 'Pin'"
+                        (click)="togglePin(openNote()!)">📌</button>
+              }
+              <button class="icon-btn" title="Duplicate" (click)="duplicate(openId()!)">⧉</button>
+              @if (openNote()?.isOwner) {
+                <button class="share-btn" (click)="openShare(openId()!)">Share</button>
+              }
+              <button class="close" (click)="closeEditor()">✕</button>
+            </div>
+            @if (canEditOpen()) {
+              <div class="tag-editor">
+                @for (t of openNote()!.tags; track t) {
+                  <span class="chip editable">#{{ t }} <button (click)="removeTag(t)" title="Remove tag">✕</button></span>
+                }
+                <input
+                  class="tag-input"
+                  placeholder="Add tag…"
+                  [value]="tagDraft()"
+                  (input)="tagDraft.set($any($event.target).value)"
+                  (keydown.enter)="addTag()"
+                />
+              </div>
+            }
+            @for (id of openIds(); track id) {
+              <app-note-editor [noteId]="id" [editable]="canEditOpen()" [exportName]="openNote()?.title || 'note'" />
+            }
+          </div>
+        </div>
+      }
+    }
+  </main>
+</div>
 
 @if (shareId(); as sid) {
   <app-share-dialog [noteId]="sid" (close)="closeShare()" />
+}
+
+@if (showPasswordDialog()) {
+  <app-change-password-dialog (close)="showPasswordDialog.set(false)" />
 }

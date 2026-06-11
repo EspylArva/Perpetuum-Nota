@@ -116,6 +116,8 @@ export const FloatingImage = Image.extend({
 
       const onPointerDown = (e: PointerEvent): void => {
         if (e.button !== 0) return;
+        // Read-only viewers (shared notes) must not reposition images.
+        if (!editor.isEditable) return;
         // Let the resize handles own their own interaction.
         if ((e.target as HTMLElement).closest(`.${RESIZE_HANDLE_CLASS}`)) return;
         dragging = true;

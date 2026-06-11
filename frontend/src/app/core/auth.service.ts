@@ -29,4 +29,14 @@ export class AuthService {
       .post('/api/auth/logout', {})
       .pipe(tap(() => this._user.set(null)));
   }
+
+  changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Observable<{ ok: true }> {
+    return this.http.post<{ ok: true }>('/api/auth/change-password', {
+      currentPassword,
+      newPassword,
+    });
+  }
 }

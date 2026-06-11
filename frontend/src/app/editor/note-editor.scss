@@ -6,6 +6,31 @@
   flex-grow: 1;
 }
 
+.conflict-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.7rem;
+  background: #ffe9e3;
+  border-bottom: 1px solid #f0b3a0;
+  color: #7a2e12;
+  font-size: 0.85rem;
+
+  button {
+    border: 1px solid #d9836a;
+    border-radius: 6px;
+    background: #fff;
+    color: #7a2e12;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    &:hover { background: #ffd9cd; }
+    &.keep { background: #b8431f; border-color: #b8431f; color: #fff;
+      &:hover { background: #9c3717; } }
+  }
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -51,6 +76,21 @@
     p { margin: 0.4em 0; }
     ul, ol { padding-left: 1.4rem; margin: 0.4em 0; }
     a { color: #1a6fd6; text-decoration: underline; cursor: pointer; }
+
+    // Task lists (checkboxes)
+    ul[data-type='taskList'] {
+      list-style: none;
+      padding-left: 0.2rem;
+      li {
+        display: flex;
+        gap: 0.45rem;
+        align-items: baseline;
+        > label { flex: 0 0 auto; }
+        > div { flex: 1 1 auto; }
+        &[data-checked='true'] > div { color: #8a7f4a; text-decoration: line-through; }
+      }
+      input[type='checkbox'] { cursor: pointer; }
+    }
     // In-flow images stay within the editor width; explicit width/height (set by
     // the resize node view as inline styles) win over this. No `height: auto`,
     // which would otherwise fight the stored height and break resizing.

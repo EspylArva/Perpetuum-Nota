@@ -1,28 +1,53 @@
 import { Injectable, signal } from '@angular/core';
+import type { NoteSort } from '@stickynotes/shared';
 
 export type ViewMode = 'list' | 'wall';
-const KEY = 'sticky.viewMode';
+const MODE_KEY = 'sticky.viewMode';
+const SORT_KEY = 'sticky.sort';
 
-/** Holds the manager's view mode, persisted to localStorage. Default: list. */
+/** Manager display preferences (view mode + sort), persisted to localStorage. */
 @Injectable({ providedIn: 'root' })
 export class ViewModeStore {
-  private readonly _mode = signal<ViewMode>(this.read());
+  private readonly _mode = signal<ViewMode>(this.readMode());
   readonly mode = this._mode.asReadonly();
+
+  private readonly _sort = signal<NoteSort>(this.readSort());
+  readonly sort = this._sort.asReadonly();
 
   set(mode: ViewMode): void {
     this._mode.set(mode);
+    this.write(MODE_KEY, mode);
+  }
+
+  setSort(sort: NoteSort): void {
+    this._sort.set(sort);
+    this.write(SORT_KEY, sort);
+  }
+
+  private write(key: string, value: string): void {
     try {
-      localStorage.setItem(KEY, mode);
+      localStorage.setItem(key, value);
     } catch {
       /* ignore storage errors */
     }
   }
 
-  private read(): ViewMode {
+  private readMode(): ViewMode {
     try {
-      return localStorage.getItem(KEY) === 'wall' ? 'wall' : 'list';
+      return localStorage.getItem(MODE_KEY) === 'wall' ? 'wall' : 'list';
     } catch {
       return 'list';
+    }
+  }
+
+  private readSort(): NoteSort {
+    try {
+      const v = localStorage.getItem(SORT_KEY);
+      return v === 'updated' || v === 'created' || v === 'title'
+        ? v
+        : 'position';
+    } catch {
+      return 'position';
     }
   }
 }
