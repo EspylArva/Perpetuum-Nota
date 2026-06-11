@@ -18,7 +18,8 @@ production hardening touches.
 - [ ] **How images reach the NAS**:
   - **A. `docker save` tarballs** — build on this PC, copy `.tar` files to the NAS, `docker load`. No registry/account needed (simplest for self-hosted).
   - **B. Registry** — push to Docker Hub / GHCR, NAS pulls. Needs an account + namespace.
-  - **C. Build on the NAS** — ship source; NAS builds (needs build tools + RAM; the Angular build is heavy — risky on low-end NAS).
+  - **C. Build on the NAS** — ship source; NAS builds (needs build tools + RAM; the Angular
+    build is heavy — heavier still since the 2026-06-12 Material rework — risky on low-end NAS).
 - [ ] **Where data lives on the NAS**:
   - **Bind-mount** to a NAS share (e.g. `/volume1/docker/stickynotes/{db,uploads}`) — visible to NAS backup/snapshot tools (recommended). Need the base path.
   - or keep **named Docker volumes** (portable, but hidden from NAS backup tools).
@@ -89,4 +90,8 @@ Produce `docker-compose.nas.yml` (kept separate from the dev/build compose):
 - ~~PR 2 / PR 3 from the review~~ — **done 2026-06-11** (access-matrix e2e, break-glass
   admin reset, password change, autosave-409, BACKUP.md, shared-with-me, trash, mobile),
   plus search/tags/pins/checklists/duplicate/export. See REVIEW.md.
+- **2026-06-12 round** (Material UI + dark theme, admin delete-user, spatial wall grid)
+  changes nothing NAS-specific: no new services, ports, or required env vars; the new
+  migrations apply automatically on boot like the others. Fonts and icons are self-hosted
+  (no CDN), so the app works on a LAN-only NAS with no internet access.
 - The NAS `.env` additionally supports `ADMIN_FORCE_PASSWORD_RESET` (break-glass; see BACKUP.md).
