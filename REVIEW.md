@@ -70,6 +70,24 @@ Make it safe to expose at a URL. **All items implemented and verified** (6/6 aut
 - [x] **Trash / recycle bin** — soft delete (`Note.deletedAt`), restore, delete-forever, empty-trash; 12-hourly sweep purges trash >30 days, drops note-body-unreferenced image assets (7-day grace) and orphaned disk files (24h grace). Trashed notes are invisible (and their images 404) to everyone but the owner.
 - [x] **Mobile pass** — off-canvas sidebar <900px, single-pane editor <768px, full-screen wall modal, larger touch targets.
 
+### Round 3 (2026-06-12): Material UI, dark theme, admin delete, spatial wall
+- **Angular Material (M3)** across the app — toolbar, sidenav, form fields,
+  selects, button toggles, chips (tag editor), checkboxes, slide toggles,
+  confirm dialogs (replacing `window.confirm`), snackbars; theme built on
+  `mat.theme` system tokens with a yellow primary.
+- **Dark theme** — header toggle, persisted, defaults to OS preference;
+  every surface (incl. custom components) rides the same `--mat-sys-*` tokens
+  via `color-scheme` switching. Fonts/icons self-hosted (offline-friendly).
+- **Admin: delete user** — `DELETE /api/users/:id` removes the account and all
+  its data (notes/shares/tags/image rows + files). Blocks self-delete and the
+  last active admin (409). Confirm dialog + snackbar in the UI; e2e-covered.
+- **Wall became a spatial grid** — 40px cells; an almost-invisible grid drawn
+  as small crosses at intersections only (masked SVG tile, theme-aware);
+  cards are 6 cells wide, height auto-snaps up to the nearest cell; dragging
+  snaps to the nearest intersection and persists per-note `wallX/wallY`
+  (owner-only; viewers see shared notes where the owner placed them);
+  unplaced notes auto-flow top-left without persisting; collision nudges down.
+
 ### Also shipped beyond the council list (2026-06-11, Evernote-parity)
 - **Full-text search** — `Note.contentText` extracted at write time, GIN FTS index (`websearch_to_tsquery` + ILIKE fallback), debounced search box. Search results respect the access predicate (covered by e2e).
 - **Tags** — owner-scoped, create-on-use, case-insensitive dedupe, auto-pruned when unused; sidebar filter with counts; chips in list/wall/editor.

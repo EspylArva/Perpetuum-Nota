@@ -12,12 +12,21 @@ and [REVIEW.md](REVIEW.md) for the hardening history.
   autosave with conflict detection (409 + resolve banner), export as HTML.
 - **Organization:** full-text search (Postgres FTS), tags (create-on-use,
   sidebar filter), pinned notes, sort by custom order / last edited / created /
-  title, list + masonry wall views, drag reorder, multi-select.
+  title, multi-select, two views:
+  - **List** — two-pane with drag reorder.
+  - **Wall** — a spatial grid: an almost-invisible grid that shows only small
+    crosses at line intersections; notes snap to the grid, their footprint
+    fills up to the nearest grid line, and they can be dragged anywhere on the
+    grid (positions persist per note; never-placed notes auto-flow).
 - **Sharing:** PRIVATE / PUBLIC (= any logged-in user) + per-user view grants;
   "Shared with me" view with an unseen badge; permission-checked image serving.
 - **Safety:** trash with restore + 30-day auto-purge, orphaned image sweeps,
   self-service password change, last-admin lockout guard, break-glass admin
-  reset, documented backups ([BACKUP.md](BACKUP.md)).
+  reset, admin user deletion (with full data cleanup), documented backups
+  ([BACKUP.md](BACKUP.md)).
+- **UI:** Angular Material (M3) throughout, light + dark themes (toggle in the
+  header, persisted, defaults to the OS preference), fully self-hosted fonts
+  and icons (no CDN).
 - **Security:** argon2 + JWT httpOnly cookie, CSRF double-submit, rate
   limiting, helmet, URL-scheme allowlist, per-request account re-validation.
 
@@ -62,6 +71,8 @@ The e2e suite migrates and runs in an isolated `e2e` schema of the dev database.
 
 ## Accounts
 No open signup. An admin is bootstrapped from `ADMIN_EMAIL` / `ADMIN_PASSWORD`
-on first boot; the admin creates other users. Forgot the admin password? See
-the break-glass procedure in [BACKUP.md](BACKUP.md). The last active admin can
-never be deactivated or demoted.
+on first boot; the admin creates other users, can disable/enable them, and can
+permanently delete a user together with all their notes and images. Forgot the
+admin password? See the break-glass procedure in [BACKUP.md](BACKUP.md). The
+last active admin can never be deactivated, demoted, or deleted, and admins
+cannot delete their own account.

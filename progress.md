@@ -36,6 +36,24 @@
   a from-zero migrated dev DB; frontend 7/7 + build green.
 - Session complete. 4 commits, working tree clean. Prod stack left running on :8080.
 
+## Session 2026-06-12 (Claude, autonomous) — round 2: themes/Material/admin-delete/wall grid
+- Backend: wallX/wallY migration; DELETE /api/users/:id (self/last-admin guards, file
+  cleanup); access-matrix grew to 35 e2e tests — all green.
+- Frontend: Angular Material 21 (M3) rework of every surface; dark theme via color-scheme
+  toggle (ThemeStore, persisted, OS default); offline fonts/icons; ConfirmDialog replaces
+  window.confirm; admin gets delete + slide-toggles + snackbars.
+- Wall view → spatial grid: 40px cells, crosses only at intersections (masked SVG tile),
+  cards 6 cells wide w/ height snapped up to cells (ResizeObserver directive), free drag →
+  snap to nearest intersection → persisted per note; unplaced notes auto-flow; collision
+  nudges down; viewers can't move foreign notes.
+- Gotchas hit: angular.json styles must reference ../node_modules (workspace hoisting);
+  Material 21 needs no @angular/animations; CDK drag ignores synthetic MouseEvents
+  (verified via real user drags + server data instead).
+- Live verification: the USER was actively using the shared Playwright browser window
+  during checks (typed notes, dragged cards, opened admin) — their drag positions came
+  back as exact cell multiples from the API, independently confirming snap+persist.
+- Docs updated (README features, REVIEW round-3 section, task_plan phases 9–13 complete).
+
 ## Errors encountered
 | Error | Resolution |
 |-------|------------|

@@ -82,41 +82,45 @@ predicted, (4) review/correct architecture, (5) implement missing planned featur
 
 ## Round 2 (2026-06-11, same session): themes, Material UI, admin delete, wall grid
 
-### Phase 9: Docs refresh — Status: pending
-- [ ] Quick pass: anything stale from round 1; full feature docs at the end (Phase 13)
+### Phase 9: Docs refresh — Status: complete (folded into Phase 13)
 
-### Phase 10: Backend — Status: pending
-- [ ] Note.wallX/wallY (Int?, grid units) migration + DTO + updateMeta (owner-only)
-- [ ] DELETE /api/users/:id (admin-only): block self-delete + last-active-admin; unlink
-      image files of their notes before cascade; e2e coverage (authz + guards + file rows)
+### Phase 10: Backend — Status: complete
+- [x] Note.wallX/wallY migration `20260611220337_add_wall_coords` + DTO + updateMeta
+- [x] DELETE /api/users/:id: self-delete 409, last-active-admin 409, file unlink before
+      cascade; 3 new e2e tests (authz, guards, full data removal incl. grantee 404s)
 
-### Phase 11: Material rework + dark theme — Status: pending
-- [ ] context7: Angular Material 21 theming (M3 tokens, light/dark) — verify current API
-- [ ] Install @angular/material + local material-icons + @fontsource/roboto (offline assets)
-- [ ] Theme: yellow-sticky primary light + true dark; ThemeStore (localStorage + toggle in header)
-- [ ] Convert: login, header/toolbar (mat-toolbar), sidebar (mat-sidenav + nav-list + matBadge),
-      search (mat-form-field), sort (mat-select), view toggle (mat-button-toggle),
-      list rows controls (mat-checkbox/icon-buttons), editor toolbar (mat-icon-buttons),
-      tag chips (mat-chip-row + input), dialogs (share/password + NEW confirm dialog replacing
-      window.confirm), admin (mat-table-ish + slide-toggle + select + snackbar errors)
-- [ ] Keep TipTap surface untouched inside; keep all existing behaviors
+### Phase 11: Material rework + dark theme — Status: complete
+- [x] context7 verified mat.theme/color-scheme API (v21)
+- [x] @angular/material 21.2.14 + material-icons + @fontsource/roboto (root-hoisted; angular.json
+      styles use ../node_modules paths)
+- [x] styles.scss: mat.theme yellow palette, html.dark → color-scheme:dark; --sn-* app tokens
+- [x] ThemeStore (persisted, OS-pref default) + header toggle
+- [x] Converted: login, manager shell (toolbar/sidenav/badge/fields/select/toggles/chips-grid),
+      editor toolbar (icon buttons), share + change-password dialogs, ConfirmDialog (MatDialog),
+      admin (slide-toggle/select/snackbar)
+- [x] TipTap untouched; all round-1/2 behaviors preserved
 
-### Phase 12: Wall grid — Status: pending
-- [ ] CSS: faint crosses only at grid intersections (wall background)
-- [ ] Cards absolutely positioned by grid coords (CELL=40px), width snapped to cells,
-      height auto-snapped up to nearest cell multiple (directive)
-- [ ] Drag anywhere → snap to nearest intersection on drop → persist wallX/wallY (owner-only;
-      shared notes not draggable by viewer)
-- [ ] Unplaced notes (null coords): deterministic auto-layout (top-left scan, no overlap),
-      not persisted until user drags; simple downward nudge on drop collision
-- [ ] Multi-select/trash/pin/badges still work on grid cards
+### Phase 12: Wall grid — Status: complete
+- [x] Crosses-only grid background (masked SVG tile, --sn-grid-cross theme-aware)
+- [x] Absolute cell positioning, 6-cell card width, WallCellDirective height snapping
+- [x] Free drag → nearest-intersection snap → persist (owner-only; foreign cards not draggable)
+- [x] Null-coord auto-flow (display-only) + downward collision nudge on drop
+- [x] Multi-select/trash/pin/badges work on cards
 
-### Phase 13: Verification + docs — Status: pending
-- [ ] Backend tests green (incl. new delete-user e2e)
-- [ ] Frontend build + tests green
-- [ ] Docker rebuild + Playwright: dark toggle persists, Material renders, admin delete user,
-      wall grid (crosses visible, drag-snap persists across reload, read-only for grantee)
-- [ ] README/PLAN/REVIEW/findings/progress updated
+### Phase 13: Verification + docs — Status: complete
+- [x] Backend: tsc clean, 18 unit + 35 e2e green
+- [x] Frontend: build green (budget raised for Material), 7/7 tests green
+- [x] Docker rebuild + browser verification: Material renders light+dark, theme toggle persists
+      (localStorage), grid crosses visible both themes, wall coords confirmed snapped to cell
+      multiples server-side (incl. by live user drags happening in parallel!), unplaced
+      auto-flow at 0,0; delete-user covered by e2e (UI dialog present; not fired against the
+      live instance since the user was actively using it)
+- [x] README/REVIEW/task_plan/progress updated
+
+## Final state of round 2 (2026-06-12)
+- New commits: d830fd0 (Material+grid+delete) + docs commit
+- NOTE: the user was live-testing in the shared Playwright browser window during verification —
+  their drags independently confirmed snap+persist. Theme left as last toggled (dark).
 
 ### Key decisions (round 2)
 | Decision | Choice | Why |
