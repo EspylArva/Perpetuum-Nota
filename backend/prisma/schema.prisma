@@ -31,6 +31,7 @@ model User {
   sharedNotes    NoteShare[]
   invitesSent    Invite[]     @relation("InvitedBy")
   uploadedImages ImageAsset[]
+  tags           Tag[]
 }
 
 model Invite {
@@ -53,17 +54,27 @@ model Note {
   owner            User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   title            String     @default("")
   content          Json       // ProseMirror / TipTap document (jsonb)
+  // Plain text extracted from `content` at write time; feeds full-text search
+  // (GIN index over title + contentText, added via raw SQL in the migration)
+  // and the list preview (first 160 chars) without re-walking the JSON per read.
+  contentText      String     @default("")
   visibility       Visibility @default(PRIVATE)
   position         Float      @default(0) // sort order; lower = earlier. Float enables fractional inserts without a full renumber.
+  pinned           Boolean    @default(false)
+  // Soft delete (trash). Null = live; set = in trash, hard-purged ~30 days later.
+  deletedAt        DateTime?
   contentUpdatedAt DateTime   @default(now())
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
   shares NoteShare[]
   images ImageAsset[]
+  tags   NoteTag[]
 
   @@index([ownerId])
   @@index([ownerId, position])
+  @@index([ownerId, deletedAt])
+  @@index([deletedAt])
 }
 
 // Explicit per-user view grants on PRIVATE notes (view-only in the MVP).
@@ -73,9 +84,36 @@ model NoteShare {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+  // When the recipient first opened the note after this grant; null = unseen
+  // (drives the "Shared with me" badge).
+  seenAt    DateTime?
 
   @@id([noteId, userId])
   @@index([userId])
+}
+
+// Owner-scoped labels (Evernote-style). Tag names are unique per owner;
+// attaching is restricted to the note owner (tags never cross accounts).
+model Tag {
+  id        String    @id @default(uuid())
+  ownerId   String
+  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime  @default(now())
+
+  notes NoteTag[]
+
+  @@unique([ownerId, name])
+}
+
+model NoteTag {
+  noteId String
+  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tagId  String
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, tagId])
+  @@index([tagId])
 }
 
 // Uploaded image files. The ProseMirror image node references these by id (/api/uploads/:id),

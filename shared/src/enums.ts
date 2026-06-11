@@ -7,5 +7,8 @@ export type Role = 'USER' | 'ADMIN';
 
 export type Visibility = 'PRIVATE' | 'PUBLIC';
 
-// Manager list filters.
-export type NoteFilter = 'mine' | 'shared' | 'all';
+// Manager list filters. 'trash' = the viewer's own soft-deleted notes.
+export type NoteFilter = 'mine' | 'shared' | 'all' | 'trash';
+
+// Manager sort orders. Default (undefined) = explicit drag position.
+export type NoteSort = 'position' | 'updated' | 'created' | 'title';

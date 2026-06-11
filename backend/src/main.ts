@@ -15,6 +15,16 @@ import { CsrfService } from './auth/csrf.service';
 const CSRF_EXEMPT = new Set(['/api/auth/login', '/api/auth/csrf']);
 
 async function bootstrap() {
+  // Fail fast on a missing signing secret: without it the app would boot fine
+  // and then 500 on the first login (and CSRF would fall back to a known
+  // literal). A misconfigured prod deployment should not come up at all.
+  if (!process.env.JWT_SECRET) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET must be set in production');
+    }
+    console.warn('JWT_SECRET is not set — using insecure dev-only secrets');
+  }
+
   // Pass the Express adapter explicitly. In this npm-workspaces layout
   // @nestjs/core hoists to the root while platform-express resolves from the
   // backend workspace, so NestFactory's auto HTTP-driver detection can miss it.

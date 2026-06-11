@@ -23,7 +23,9 @@ export function createCsrf(secret: string) {
     cookieOptions: {
       httpOnly: false, // the SPA must read it to echo it back in the header
       sameSite: 'lax',
-      secure: false, // overridden per-request below via req.secure-aware wrapper
+      // Default for the protection middleware's re-issue path; the token issuer
+      // (CsrfService.generateToken) overrides per request from req.secure.
+      secure: false,
       path: '/',
     },
     getCsrfTokenFromRequest: (req: Request) =>

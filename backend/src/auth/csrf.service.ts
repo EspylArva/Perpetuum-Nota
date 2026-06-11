@@ -20,9 +20,15 @@ export class CsrfService {
     this.csrf = createCsrf(secret);
   }
 
-  /** Issues a token (and sets the csrf cookie on the response). */
+  /**
+   * Issues a token (and sets the csrf cookie on the response). The secure flag
+   * follows the actual request protocol (req.secure honors X-Forwarded-Proto
+   * with trust-proxy on), mirroring how the auth cookie is issued.
+   */
   generateToken(req: Request, res: Response): string {
-    return this.csrf.generateCsrfToken(req, res);
+    return this.csrf.generateCsrfToken(req, res, {
+      cookieOptions: { secure: req.secure },
+    });
   }
 
   /** Express middleware enforcing CSRF on mutating methods. */

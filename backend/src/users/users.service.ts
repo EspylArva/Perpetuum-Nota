@@ -55,6 +55,26 @@ export class UsersService {
   }
 
   async update(id: string, dto: UpdateUserDto) {
+    // Lockout guard: never let the last active admin be deactivated or demoted
+    // (including by themselves) — with no other admin, the instance would have
+    // no way to manage users or recover.
+    if (dto.isActive === false || (dto.role !== undefined && dto.role !== 'ADMIN')) {
+      const target = await this.prisma.user.findUnique({
+        where: { id },
+        select: { role: true, isActive: true },
+      });
+      if (target?.role === 'ADMIN' && target.isActive) {
+        const otherAdmins = await this.prisma.user.count({
+          where: { role: 'ADMIN', isActive: true, NOT: { id } },
+        });
+        if (otherAdmins === 0) {
+          throw new ConflictException(
+            'Cannot deactivate or demote the last active admin',
+          );
+        }
+      }
+    }
+
     const user = await this.prisma.user.update({
       where: { id },
       data: {

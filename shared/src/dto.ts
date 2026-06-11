@@ -25,6 +25,11 @@ export interface UpdateUserDto {
   isActive?: boolean;
 }
 
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export interface NoteSummaryDto {
   id: string;
   title: string;
@@ -33,10 +38,17 @@ export interface NoteSummaryDto {
   isOwner: boolean;
   // explicit sort order (lower = earlier); set via drag-reorder
   position: number;
+  pinned: boolean;
+  // non-null = in trash (ISO timestamp of the soft delete)
+  deletedAt: string | null;
   updatedAt: string;
   contentUpdatedAt: string;
   // short plain-text preview for cards / list rows
   preview: string;
+  // owner's tag names on this note (alphabetical)
+  tags: string[];
+  // false only for a share grant the viewer hasn't opened yet
+  seen: boolean;
 }
 
 export interface NoteDto extends NoteSummaryDto {
@@ -49,12 +61,12 @@ export interface CreateNoteDto {
 
 export interface UpdateNoteDto {
   title?: string;
-  visibility?: Visibility;
+  pinned?: boolean;
 }
 
 export interface UpdateNoteContentDto {
   content: ProseMirrorDoc;
-  // optimistic-concurrency guard (optional, see PLAN.md decision #2)
+  // optimistic-concurrency guard: server rejects with 409 when the note moved on
   baseContentUpdatedAt?: string;
 }
 
@@ -73,6 +85,21 @@ export interface ReorderResultDto {
 export interface NoteSharesDto {
   visibility: Visibility;
   sharedWith: UserDto[];
+}
+
+export interface SetTagsDto {
+  names: string[];
+}
+
+export interface TagDto {
+  id: string;
+  name: string;
+  // live (non-trashed) notes carrying this tag
+  count: number;
+}
+
+export interface SharedBadgeDto {
+  count: number;
 }
 
 export interface LoginDto {

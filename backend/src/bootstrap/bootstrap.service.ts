@@ -20,6 +20,8 @@ export class BootstrapService implements OnApplicationBootstrap {
   async onApplicationBootstrap(): Promise<void> {
     const email = this.config.get<string>('ADMIN_EMAIL');
     const password = this.config.get<string>('ADMIN_PASSWORD');
+    const forceReset =
+      this.config.get<string>('ADMIN_FORCE_PASSWORD_RESET') === 'true';
 
     if (!email || !password) {
       this.logger.warn(
@@ -30,7 +32,22 @@ export class BootstrapService implements OnApplicationBootstrap {
 
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
-      this.logger.log(`Admin user already present: ${email}`);
+      if (forceReset) {
+        // Break-glass recovery: reset the admin's password to ADMIN_PASSWORD
+        // and restore role/active status. Set ADMIN_FORCE_PASSWORD_RESET=true,
+        // restart, log in, then REMOVE the flag (it re-applies on every boot
+        // while set).
+        const passwordHash = await argon2.hash(password);
+        await this.prisma.user.update({
+          where: { email },
+          data: { passwordHash, role: 'ADMIN', isActive: true },
+        });
+        this.logger.warn(
+          `ADMIN_FORCE_PASSWORD_RESET applied to ${email} — remove the flag from the environment now`,
+        );
+      } else {
+        this.logger.log(`Admin user already present: ${email}`);
+      }
       return;
     }
 

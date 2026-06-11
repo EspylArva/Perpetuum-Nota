@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
 import { CsrfService } from './csrf.service';
 import { CurrentUser } from './current-user.decorator';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { ACCESS_TOKEN_COOKIE } from './jwt-auth.guard';
 import { Public } from './public.decorator';
@@ -78,6 +79,22 @@ export class AuthController {
       where: { id: current.id },
     });
     return user ? this.toDto(user) : null;
+  }
+
+  // Same brute-force posture as login: the current password is being guessed.
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @Post('change-password')
+  @HttpCode(200)
+  async changePassword(
+    @CurrentUser() current: AuthenticatedUser,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<{ ok: true }> {
+    await this.auth.changePassword(
+      current.id,
+      dto.currentPassword,
+      dto.newPassword,
+    );
+    return { ok: true };
   }
 
   private toDto(user: UserLike): UserLike {

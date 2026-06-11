@@ -19,18 +19,32 @@ import { BatchDeleteDto } from './dto/batch-delete.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { ReorderNotesDto } from './dto/reorder-notes.dto';
 import { SetSharesDto } from './dto/set-shares.dto';
+import { SetTagsDto } from './dto/set-tags.dto';
 import { SetVisibilityDto } from './dto/set-visibility.dto';
 import { UpdateNoteContentDto } from './dto/update-note-content.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
-import { NoteFilter, NotesService } from './notes.service';
+import { NoteFilter, NoteSort, NotesService } from './notes.service';
+import { TagsService } from '../tags/tags.service';
 
 function normalizeFilter(value?: string): NoteFilter {
-  return value === 'mine' || value === 'shared' ? value : 'all';
+  return value === 'mine' || value === 'shared' || value === 'trash'
+    ? value
+    : 'all';
 }
 
+function normalizeSort(value?: string): NoteSort | undefined {
+  return value === 'updated' || value === 'created' || value === 'title'
+    ? value
+    : undefined; // default = explicit position order
+}
+
+// Static routes are declared before ':id' routes so they aren't captured as ids.
 @Controller('notes')
 export class NotesController {
-  constructor(private readonly notes: NotesService) {}
+  constructor(
+    private readonly notes: NotesService,
+    private readonly tags: TagsService,
+  ) {}
 
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateNoteDto) {
@@ -41,8 +55,22 @@ export class NotesController {
   list(
     @CurrentUser() user: AuthenticatedUser,
     @Query('filter') filter?: string,
+    @Query('q') q?: string,
+    @Query('tag') tag?: string,
+    @Query('sort') sort?: string,
   ) {
-    return this.notes.listViewable(user.id, normalizeFilter(filter));
+    return this.notes.listViewable(user.id, {
+      filter: normalizeFilter(filter),
+      q,
+      tag,
+      sort: normalizeSort(sort),
+    });
+  }
+
+  // Unopened share grants (sidebar badge).
+  @Get('shared-badge')
+  sharedBadge(@CurrentUser() user: AuthenticatedUser) {
+    return this.notes.unseenSharedCount(user.id);
   }
 
   @Post('batch-delete')
@@ -54,7 +82,6 @@ export class NotesController {
     return this.notes.batchDelete(user.id, dto.ids);
   }
 
-  // Registered before `@Get(':id')` so "reorder" isn't captured as a note id.
   // No NoteAccessGuard: the service self-filters to notes the user owns.
   @Post('reorder')
   @HttpCode(200)
@@ -63,6 +90,12 @@ export class NotesController {
     @Body() dto: ReorderNotesDto,
   ) {
     return this.notes.reorder(user.id, dto.orderedIds);
+  }
+
+  @Post('trash/empty')
+  @HttpCode(200)
+  emptyTrash(@CurrentUser() user: AuthenticatedUser) {
+    return this.notes.emptyTrash(user.id);
   }
 
   @Get(':id')
@@ -90,11 +123,45 @@ export class NotesController {
     return this.notes.updateContent(id, dto);
   }
 
+  // Soft delete — moves to trash. Restore or purge below.
   @Delete(':id')
   @UseGuards(NoteAccessGuard)
   @NoteAccess('delete')
   remove(@Param('id') id: string) {
     return this.notes.remove(id);
+  }
+
+  @Post(':id/restore')
+  @UseGuards(NoteAccessGuard)
+  @NoteAccess('delete')
+  restore(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.notes.restore(id, user.id);
+  }
+
+  @Delete(':id/permanent')
+  @UseGuards(NoteAccessGuard)
+  @NoteAccess('delete')
+  removePermanently(@Param('id') id: string) {
+    return this.notes.removePermanently(id);
+  }
+
+  // Anyone who can view a note may duplicate it into their own account.
+  @Post(':id/duplicate')
+  @UseGuards(NoteAccessGuard)
+  @NoteAccess('view')
+  duplicate(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.notes.duplicate(id, user.id);
+  }
+
+  @Put(':id/tags')
+  @UseGuards(NoteAccessGuard)
+  @NoteAccess('edit')
+  setTags(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SetTagsDto,
+  ) {
+    return this.tags.setNoteTags(id, user.id, dto.names);
   }
 
   @Patch(':id/visibility')

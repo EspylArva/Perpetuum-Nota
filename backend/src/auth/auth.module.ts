@@ -13,7 +13,9 @@ import { JwtAuthGuard } from './jwt-auth.guard';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET'),
+        // main.ts refuses to boot without JWT_SECRET in production; outside
+        // production fall back to a dev-only literal so local runs still work.
+        secret: config.get<string>('JWT_SECRET') ?? 'dev-jwt-secret-change-me',
         signOptions: { expiresIn: '7d' },
       }),
     }),

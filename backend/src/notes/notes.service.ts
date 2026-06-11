@@ -1,16 +1,32 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { Note, Prisma, Visibility } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { EMPTY_DOC, extractPlainText } from '../common/prosemirror-text';
+import {
+  EMPTY_DOC,
+  extractSearchText,
+  isProseMirrorDoc,
+  previewFromText,
+  rewriteUploadSrcs,
+} from '../common/prosemirror-text';
+import { UploadsService } from '../uploads/uploads.service';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 import { UpdateNoteContentDto } from './dto/update-note-content.dto';
 
-export type NoteFilter = 'mine' | 'shared' | 'all';
+export type NoteFilter = 'mine' | 'shared' | 'all' | 'trash';
+export type NoteSort = 'position' | 'updated' | 'created' | 'title';
+
+export interface ListOptions {
+  filter: NoteFilter;
+  q?: string;
+  tag?: string;
+  sort?: NoteSort;
+}
 
 export interface NoteSummary {
   id: string;
@@ -19,14 +35,29 @@ export interface NoteSummary {
   ownerId: string;
   isOwner: boolean;
   position: number;
+  pinned: boolean;
+  deletedAt: Date | null;
   updatedAt: Date;
   contentUpdatedAt: Date;
   preview: string;
+  tags: string[];
+  /** False only for a share grant the recipient hasn't opened yet. */
+  seen: boolean;
 }
+
+type NoteWithMeta = Note & {
+  tags: { tag: { name: string } }[];
+  shares: { seenAt: Date | null }[];
+};
+
+const TRASH_RETENTION_DAYS = 30;
 
 @Injectable()
 export class NotesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly uploads: UploadsService,
+  ) {}
 
   async create(userId: string, dto: CreateNoteDto): Promise<NoteSummary> {
     // Place new notes first by giving them a position below the current minimum.
@@ -41,34 +72,97 @@ export class NotesService {
         content: EMPTY_DOC,
         position: (_min.position ?? 0) - 1,
       },
+      include: this.metaInclude(userId),
     });
     return this.toSummary(note, userId);
   }
 
   async listViewable(
     userId: string,
-    filter: NoteFilter,
+    opts: ListOptions,
   ): Promise<NoteSummary[]> {
+    const { filter, q, tag } = opts;
+
+    if (filter === 'trash') {
+      // Trash is strictly the viewer's own notes; shared/public notes in
+      // someone else's trash are invisible (and unviewable, see NoteAccessService).
+      const notes = await this.prisma.note.findMany({
+        where: { ownerId: userId, deletedAt: { not: null } },
+        include: this.metaInclude(userId),
+        orderBy: { deletedAt: 'desc' },
+      });
+      return notes.map((n) => this.toSummary(n, userId));
+    }
+
     const owned: Prisma.NoteWhereInput = { ownerId: userId };
     const sharedWithMe: Prisma.NoteWhereInput = {
       ownerId: { not: userId },
       OR: [{ visibility: 'PUBLIC' }, { shares: { some: { userId } } }],
     };
 
-    let where: Prisma.NoteWhereInput;
-    if (filter === 'mine') where = owned;
-    else if (filter === 'shared') where = sharedWithMe;
-    else where = { OR: [owned, sharedWithMe] };
+    let scope: Prisma.NoteWhereInput;
+    if (filter === 'mine') scope = owned;
+    else if (filter === 'shared') scope = sharedWithMe;
+    else scope = { OR: [owned, sharedWithMe] };
 
-    // `position` is owner-local. For the `all`/`shared` filters, owned notes
-    // (which the user can reorder) interleave with shared notes whose position
-    // belongs to another owner — so the explicit order is only fully meaningful
-    // for the viewer's own notes. Acceptable for the MVP.
+    const and: Prisma.NoteWhereInput[] = [scope, { deletedAt: null }];
+
+    // Tag filter — tags are owner-scoped, so this effectively narrows to the
+    // viewer's own notes carrying that tag.
+    if (tag) {
+      and.push({
+        tags: { some: { tag: { ownerId: userId, name: tag } } },
+      });
+    }
+
+    // Full-text search: GIN-indexed websearch over title + contentText, plus
+    // ILIKE so partial words still hit (FTS matches whole lexemes only).
+    if (q && q.trim()) {
+      const ids = await this.searchIds(q.trim());
+      and.push({ id: { in: ids } });
+    }
+
     const notes = await this.prisma.note.findMany({
-      where,
-      orderBy: [{ position: 'asc' }, { updatedAt: 'desc' }],
+      where: { AND: and },
+      include: this.metaInclude(userId),
+      orderBy: this.orderBy(opts.sort),
     });
     return notes.map((n) => this.toSummary(n, userId));
+  }
+
+  /**
+   * Id-prefilter for search. Access control is applied by the Prisma query the
+   * ids feed into, so this can stay a simple content match.
+   */
+  private async searchIds(q: string): Promise<string[]> {
+    const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "Note"
+      WHERE to_tsvector('simple', coalesce(title, '') || ' ' || coalesce("contentText", ''))
+              @@ websearch_to_tsquery('simple', ${q})
+         OR title ILIKE ${like} ESCAPE '\\'
+         OR "contentText" ILIKE ${like} ESCAPE '\\'
+      LIMIT 500
+    `;
+    return rows.map((r) => r.id);
+  }
+
+  private orderBy(
+    sort?: NoteSort,
+  ): Prisma.NoteOrderByWithRelationInput[] {
+    const pinnedFirst: Prisma.NoteOrderByWithRelationInput = {
+      pinned: 'desc',
+    };
+    switch (sort) {
+      case 'updated':
+        return [pinnedFirst, { contentUpdatedAt: 'desc' }];
+      case 'created':
+        return [pinnedFirst, { createdAt: 'desc' }];
+      case 'title':
+        return [pinnedFirst, { title: 'asc' }];
+      default:
+        return [pinnedFirst, { position: 'asc' }, { updatedAt: 'desc' }];
+    }
   }
 
   /**
@@ -102,67 +196,196 @@ export class NotesService {
   }
 
   async findOne(noteId: string, userId: string) {
-    const note = await this.prisma.note.findUnique({ where: { id: noteId } });
+    const note = await this.prisma.note.findUnique({
+      where: { id: noteId },
+      include: this.metaInclude(userId),
+    });
     if (!note) throw new NotFoundException('Note not found');
+
+    // Opening a note consumes its "unseen share" badge for this viewer.
+    if (note.ownerId !== userId) {
+      await this.prisma.noteShare.updateMany({
+        where: { noteId, userId, seenAt: null },
+        data: { seenAt: new Date() },
+      });
+    }
     return { ...this.toSummary(note, userId), content: note.content };
+  }
+
+  /** Count of share grants to me I haven't opened yet (sidebar badge). */
+  async unseenSharedCount(userId: string): Promise<{ count: number }> {
+    const count = await this.prisma.noteShare.count({
+      where: {
+        userId,
+        seenAt: null,
+        note: { deletedAt: null, ownerId: { not: userId } },
+      },
+    });
+    return { count };
   }
 
   async updateMeta(noteId: string, userId: string, dto: UpdateNoteDto) {
     const note = await this.prisma.note.update({
       where: { id: noteId },
-      data: { title: dto.title?.trim() },
+      data: {
+        ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
+        ...(dto.pinned !== undefined ? { pinned: dto.pinned } : {}),
+      },
+      include: this.metaInclude(userId),
     });
     return this.toSummary(note, userId);
   }
 
   async updateContent(noteId: string, dto: UpdateNoteContentDto) {
-    if ((dto.content as { type?: unknown }).type !== 'doc') {
-      throw new ConflictException('content must be a ProseMirror "doc" node');
+    if (!isProseMirrorDoc(dto.content)) {
+      throw new BadRequestException('content must be a ProseMirror "doc" node');
     }
+    const contentText = extractSearchText(dto.content);
+    const now = new Date();
+    const data = {
+      content: dto.content as Prisma.InputJsonValue,
+      contentText,
+      contentUpdatedAt: now,
+    };
 
     if (dto.baseContentUpdatedAt) {
-      const current = await this.prisma.note.findUnique({
-        where: { id: noteId },
-        select: { contentUpdatedAt: true },
+      const base = new Date(dto.baseContentUpdatedAt);
+      if (Number.isNaN(base.getTime())) {
+        throw new BadRequestException(
+          'baseContentUpdatedAt must be an ISO timestamp',
+        );
+      }
+      // Atomic optimistic concurrency: the row is only written if it still
+      // carries the timestamp the client based its edit on.
+      const res = await this.prisma.note.updateMany({
+        where: { id: noteId, contentUpdatedAt: base },
+        data,
       });
-      if (
-        current &&
-        current.contentUpdatedAt.toISOString() !== dto.baseContentUpdatedAt
-      ) {
+      if (res.count === 0) {
         throw new ConflictException('Note was modified elsewhere');
       }
+      return { contentUpdatedAt: now };
     }
 
     const note = await this.prisma.note.update({
       where: { id: noteId },
-      data: {
-        content: dto.content as Prisma.InputJsonValue,
-        contentUpdatedAt: new Date(),
-      },
+      data,
       select: { contentUpdatedAt: true },
     });
     return { contentUpdatedAt: note.contentUpdatedAt };
   }
 
-  async remove(noteId: string): Promise<{ id: string }> {
+  /** Soft delete — moves the note to trash (idempotent). */
+  async remove(noteId: string): Promise<{ id: string; deletedAt: Date }> {
+    const note = await this.prisma.note.update({
+      where: { id: noteId },
+      data: { deletedAt: new Date() },
+      select: { id: true, deletedAt: true },
+    });
+    return { id: note.id, deletedAt: note.deletedAt! };
+  }
+
+  async restore(noteId: string, userId: string): Promise<NoteSummary> {
+    const note = await this.prisma.note.update({
+      where: { id: noteId },
+      data: { deletedAt: null },
+      include: this.metaInclude(userId),
+    });
+    return this.toSummary(note, userId);
+  }
+
+  /** Hard delete — removes the row (cascades) and the image files on disk. */
+  async removePermanently(noteId: string): Promise<{ id: string }> {
+    const assets = await this.prisma.imageAsset.findMany({
+      where: { noteId },
+    });
     await this.prisma.note.delete({ where: { id: noteId } });
+    await this.uploads.deleteFiles(assets);
     return { id: noteId };
   }
 
-  /** Deletes only the notes the user owns; returns the ids actually deleted. */
+  /** Empties the caller's trash. Returns the ids purged. */
+  async emptyTrash(userId: string): Promise<{ deleted: string[] }> {
+    const trashed = await this.prisma.note.findMany({
+      where: { ownerId: userId, deletedAt: { not: null } },
+      select: { id: true },
+    });
+    const ids = trashed.map((n) => n.id);
+    if (ids.length > 0) {
+      const assets = await this.prisma.imageAsset.findMany({
+        where: { noteId: { in: ids } },
+      });
+      await this.prisma.note.deleteMany({ where: { id: { in: ids } } });
+      await this.uploads.deleteFiles(assets);
+    }
+    return { deleted: ids };
+  }
+
+  /** Soft-deletes only the notes the user owns; returns the ids trashed. */
   async batchDelete(
     userId: string,
     ids: string[],
   ): Promise<{ deleted: string[] }> {
     const owned = await this.prisma.note.findMany({
-      where: { id: { in: ids }, ownerId: userId },
+      where: { id: { in: ids }, ownerId: userId, deletedAt: null },
       select: { id: true },
     });
     const deletable = owned.map((n) => n.id);
     if (deletable.length > 0) {
-      await this.prisma.note.deleteMany({ where: { id: { in: deletable } } });
+      await this.prisma.note.updateMany({
+        where: { id: { in: deletable } },
+        data: { deletedAt: new Date() },
+      });
     }
     return { deleted: deletable };
+  }
+
+  /**
+   * Clones a note the user can view into their own account: content, image
+   * files (fresh copies — no cross-note file sharing), and — when duplicating
+   * one's own note — its tags. Visibility resets to PRIVATE.
+   */
+  async duplicate(noteId: string, userId: string): Promise<NoteSummary> {
+    const src = await this.prisma.note.findUnique({
+      where: { id: noteId },
+      include: { tags: { select: { tagId: true } } },
+    });
+    if (!src) throw new NotFoundException('Note not found');
+
+    const { _min } = await this.prisma.note.aggregate({
+      where: { ownerId: userId },
+      _min: { position: true },
+    });
+
+    const created = await this.prisma.note.create({
+      data: {
+        ownerId: userId,
+        title: `${src.title || 'Untitled'} (copy)`,
+        content: src.content as Prisma.InputJsonValue,
+        contentText: src.contentText,
+        visibility: 'PRIVATE',
+        position: (_min.position ?? 0) - 1,
+        ...(src.ownerId === userId && src.tags.length > 0
+          ? { tags: { create: src.tags.map((t) => ({ tagId: t.tagId })) } }
+          : {}),
+      },
+    });
+
+    // Copy image files + asset rows, then point the cloned doc at the copies.
+    const idMap = await this.uploads.copyAssets(noteId, created.id, userId);
+    if (idMap.size > 0) {
+      const rewritten = rewriteUploadSrcs(src.content, idMap);
+      await this.prisma.note.update({
+        where: { id: created.id },
+        data: { content: rewritten as Prisma.InputJsonValue },
+      });
+    }
+
+    const full = await this.prisma.note.findUniqueOrThrow({
+      where: { id: created.id },
+      include: this.metaInclude(userId),
+    });
+    return this.toSummary(full, userId);
   }
 
   async setVisibility(noteId: string, visibility: Visibility) {
@@ -200,7 +423,10 @@ export class NotesService {
     });
     const ids = valid.map((u) => u.id);
     await this.prisma.$transaction([
-      this.prisma.noteShare.deleteMany({ where: { noteId } }),
+      // Keep existing grants' seenAt: delete only removed users, add only new.
+      this.prisma.noteShare.deleteMany({
+        where: { noteId, userId: { notIn: ids } },
+      }),
       ...(ids.length
         ? [
             this.prisma.noteShare.createMany({
@@ -213,7 +439,37 @@ export class NotesService {
     return this.getShares(noteId);
   }
 
-  private toSummary(note: Note, userId: string): NoteSummary {
+  /** Hard-purges trash older than the retention window (called by the sweep). */
+  async purgeExpiredTrash(): Promise<number> {
+    const cutoff = new Date(
+      Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+    );
+    const expired = await this.prisma.note.findMany({
+      where: { deletedAt: { lt: cutoff } },
+      select: { id: true },
+    });
+    const ids = expired.map((n) => n.id);
+    if (ids.length === 0) return 0;
+    const assets = await this.prisma.imageAsset.findMany({
+      where: { noteId: { in: ids } },
+    });
+    await this.prisma.note.deleteMany({ where: { id: { in: ids } } });
+    await this.uploads.deleteFiles(assets);
+    return ids.length;
+  }
+
+  private metaInclude(userId: string) {
+    return {
+      tags: {
+        select: { tag: { select: { name: true } } },
+        orderBy: { tag: { name: 'asc' as const } },
+      },
+      shares: { where: { userId }, select: { seenAt: true } },
+    };
+  }
+
+  private toSummary(note: NoteWithMeta, userId: string): NoteSummary {
+    const grant = note.shares[0];
     return {
       id: note.id,
       title: note.title,
@@ -221,9 +477,13 @@ export class NotesService {
       ownerId: note.ownerId,
       isOwner: note.ownerId === userId,
       position: note.position,
+      pinned: note.pinned,
+      deletedAt: note.deletedAt,
       updatedAt: note.updatedAt,
       contentUpdatedAt: note.contentUpdatedAt,
-      preview: extractPlainText(note.content),
+      preview: previewFromText(note.contentText),
+      tags: note.tags.map((t) => t.tag.name),
+      seen: note.ownerId === userId || !grant || grant.seenAt !== null,
     };
   }
 }
