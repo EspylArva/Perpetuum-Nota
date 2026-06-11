@@ -1,0 +1,29 @@
+<div class="login-wrap">
+  <form class="login-card" (ngSubmit)="submit()">
+    <div class="brand">
+      <span class="dot"></span>
+      <h1>Sticky Notes</h1>
+    </div>
+    <p class="sub">Sign in to your notes</p>
+
+    <label>
+      <span>Email</span>
+      <input type="email" name="email" [(ngModel)]="email" required
+             autocomplete="username" autofocus />
+    </label>
+
+    <label>
+      <span>Password</span>
+      <input type="password" name="password" [(ngModel)]="password" required
+             autocomplete="current-password" />
+    </label>
+
+    @if (error()) {
+      <p class="err">{{ error() }}</p>
+    }
+
+    <button type="submit" [disabled]="loading()">
+      {{ loading() ? 'Signing in…' : 'Sign in' }}
+    </button>
+  </form>
+</div>

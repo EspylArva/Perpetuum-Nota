@@ -1,0 +1,106 @@
+<header class="bar">
+  <strong>Sticky Notes</strong>
+  <span class="spacer"></span>
+  @if (user(); as u) {
+    @if (u.role === 'ADMIN') {
+      <a routerLink="/admin/users" class="ghost link">Users</a>
+    }
+    <span class="who">{{ u.displayName }}</span>
+  }
+  <button class="ghost" (click)="logout()">Sign out</button>
+</header>
+
+<div class="toolbar">
+  <button class="primary" (click)="create()">+ New note</button>
+  <div class="toggle" role="tablist">
+    <button [class.active]="mode() === 'list'" (click)="setView('list')">List</button>
+    <button [class.active]="mode() === 'wall'" (click)="setView('wall')">Wall</button>
+  </div>
+  <span class="spacer"></span>
+  @if (selectionCount() > 0) {
+    <button class="danger" (click)="batchDelete()">Delete ({{ selectionCount() }})</button>
+    <button class="ghost-sm" (click)="clearSelection()">Clear</button>
+  }
+</div>
+
+@if (mode() === 'list') {
+  <div class="list-layout" [class.split]="openId()">
+    <aside class="rows" cdkDropList (cdkDropListDropped)="drop($event)">
+      @for (n of notes(); track n.id) {
+        <div class="row" cdkDrag [class.open]="n.id === openId()" [class.checked]="isSelected(n.id)">
+          <input type="checkbox" [checked]="isSelected(n.id)"
+                 (click)="$event.stopPropagation()" (change)="toggleSelect(n.id)" />
+          <div class="row-main" (click)="open(n.id)">
+            <div class="row-title">
+              {{ n.title || 'Untitled' }}
+              @if (n.visibility === 'PUBLIC') { <span class="badge pub">Public</span> }
+              @if (!n.isOwner) { <span class="badge shared">Shared</span> }
+            </div>
+            <div class="row-preview">{{ n.preview || 'Empty note' }}</div>
+          </div>
+          <button class="drag-handle" cdkDragHandle title="Drag to reorder">⠿</button>
+          <button class="del" title="Delete" (click)="deleteOne(n.id); $event.stopPropagation()">🗑</button>
+        </div>
+      } @empty {
+        <p class="muted">{{ loading() ? 'Loading…' : 'No notes yet.' }}</p>
+      }
+    </aside>
+
+    <section class="pane">
+      @for (id of openIds(); track id) {
+        <div class="pane-head">
+          <input class="title-input" [value]="openNote()?.title || ''"
+                 (change)="rename(id, $any($event.target).value)" placeholder="Untitled" />
+          @if (openNote()?.isOwner) {
+            <button class="share-btn" (click)="openShare(id)">Share</button>
+          }
+        </div>
+        <app-note-editor [noteId]="id" />
+      } @empty {
+        <p class="empty">Select a note, or create a new one.</p>
+      }
+    </section>
+  </div>
+}
+
+@if (mode() === 'wall') {
+  <div class="wall" cdkDropList cdkDropListOrientation="mixed" (cdkDropListDropped)="drop($event)">
+    @for (n of notes(); track n.id) {
+      <article class="card" cdkDrag [class.checked]="isSelected(n.id)" (click)="open(n.id)">
+        <input type="checkbox" class="card-check" [checked]="isSelected(n.id)"
+               (click)="$event.stopPropagation()" (change)="toggleSelect(n.id)" />
+        <button class="del" title="Delete" (click)="deleteOne(n.id); $event.stopPropagation()">🗑</button>
+        <h3>{{ n.title || 'Untitled' }}</h3>
+        <p>{{ n.preview || 'Empty note' }}</p>
+        <div class="badges">
+          @if (n.visibility === 'PUBLIC') { <span class="badge pub">Public</span> }
+          @if (!n.isOwner) { <span class="badge shared">Shared</span> }
+        </div>
+      </article>
+    } @empty {
+      <p class="muted">{{ loading() ? 'Loading…' : 'No notes yet.' }}</p>
+    }
+  </div>
+
+  @if (openId()) {
+    <div class="modal-backdrop" (click)="closeEditor()">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <div class="modal-head">
+          <input class="title-input" [value]="openNote()?.title || ''"
+                 (change)="rename(openId()!, $any($event.target).value)" placeholder="Untitled" />
+          @if (openNote()?.isOwner) {
+            <button class="share-btn" (click)="openShare(openId()!)">Share</button>
+          }
+          <button class="close" (click)="closeEditor()">✕</button>
+        </div>
+        @for (id of openIds(); track id) {
+          <app-note-editor [noteId]="id" />
+        }
+      </div>
+    </div>
+  }
+}
+
+@if (shareId(); as sid) {
+  <app-share-dialog [noteId]="sid" (close)="closeShare()" />
+}

@@ -1,0 +1,37 @@
+:host { display: block; min-height: 100dvh; background: #f4f1e4; }
+
+.bar {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.55rem 1rem; background: #2f2b1a; color: #fff6c4;
+  .ghost { color: #f0c808; text-decoration: none; font-weight: 600; }
+}
+.spacer { flex: 1; }
+
+.content { max-width: 820px; margin: 0 auto; padding: 1.5rem 1rem; display: flex; flex-direction: column; gap: 1.25rem; }
+
+.card {
+  background: #fffdf3; border: 1px solid #e7dca0; border-radius: 12px; padding: 1.1rem 1.25rem;
+  h2 { margin: 0 0 0.5rem; font-size: 1.05rem; color: #2f2b1a; }
+  .hint { margin: 0 0 0.8rem; font-size: 0.82rem; color: #8a7f4a; }
+}
+
+.form {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+  input, select {
+    padding: 0.5rem 0.6rem; border: 1px solid #ddcd72; border-radius: 8px;
+    background: #fffdf0; font-size: 0.9rem;
+  }
+  input { flex: 1; min-width: 140px; }
+  .primary { border: none; border-radius: 8px; padding: 0.5rem 1rem; background: #f0c808; color: #2f2b1a; font-weight: 700; cursor: pointer; }
+}
+.err { color: #b4232a; font-size: 0.82rem; margin: 0.6rem 0 0; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+th, td { text-align: left; padding: 0.5rem 0.4rem; border-bottom: 1px solid #ece3b8; }
+th { color: #8a7f4a; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.4px; }
+td.email { color: #6f6638; }
+tr.inactive { opacity: 0.5; }
+td.actions button, td select {
+  border: 1px solid #cbb94f; border-radius: 6px; padding: 0.3rem 0.6rem;
+  background: #fffdf0; color: #4a4424; cursor: pointer; font-size: 0.82rem;
+}

@@ -1,0 +1,162 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: #f4f1e4;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 1rem;
+  background: #2f2b1a;
+  color: #fff6c4;
+  .who { font-size: 0.85rem; opacity: 0.85; }
+  .ghost {
+    border: 1px solid #f0c808; border-radius: 6px; padding: 0.35rem 0.7rem;
+    background: transparent; color: #f0c808; cursor: pointer; font-weight: 600;
+  }
+}
+.spacer { flex: 1; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid #e2dcc0;
+  background: #faf6e6;
+
+  .primary {
+    border: none; border-radius: 8px; padding: 0.45rem 0.8rem;
+    background: #f0c808; color: #2f2b1a; font-weight: 700; cursor: pointer;
+  }
+  .toggle {
+    display: inline-flex; border: 1px solid #d9cd72; border-radius: 8px; overflow: hidden;
+    button {
+      border: none; padding: 0.4rem 0.85rem; background: #fffdf0; color: #6f6638;
+      cursor: pointer; font-size: 0.85rem;
+      &.active { background: #f0c808; color: #2f2b1a; font-weight: 700; }
+    }
+  }
+  .danger {
+    border: none; border-radius: 8px; padding: 0.45rem 0.8rem;
+    background: #e5484d; color: #fff; font-weight: 600; cursor: pointer;
+  }
+  .ghost-sm {
+    border: 1px solid #cbb94f; border-radius: 8px; padding: 0.45rem 0.7rem;
+    background: transparent; color: #6f6638; cursor: pointer;
+  }
+}
+
+.muted, .empty { color: #a99f6e; padding: 1.5rem; }
+
+/* ---- list view ---- */
+.list-layout { flex: 1; display: flex; min-height: 0; }
+.rows {
+  flex: 1; min-width: 0; border-right: 1px solid #e2dcc0; background: #faf6e6;
+  overflow: auto; padding: 0.5rem;
+}
+/* When a note is open the list collapses to a sidebar; otherwise it fills the width. */
+.list-layout.split .rows { flex: 0 0 300px; }
+.list-layout:not(.split) .pane { display: none; }
+.row {
+  display: flex; align-items: flex-start; gap: 0.5rem;
+  padding: 0.55rem 0.5rem; border-radius: 8px; cursor: default; background: #faf6e6;
+  &:hover { background: #f1e7b8; }
+  &.open { background: #ffe98c; }
+  &.checked { outline: 2px solid #4f7fff; outline-offset: -2px; }
+  input[type='checkbox'] { margin-top: 0.2rem; }
+  .row-main { flex: 1; min-width: 0; cursor: pointer; }
+  .row-title { font-weight: 600; color: #3a3520; font-size: 0.9rem; display: flex; gap: 0.4rem; align-items: center; }
+  .row-preview { font-size: 0.78rem; color: #8a7f4a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .drag-handle {
+    border: none; background: transparent; cursor: grab; opacity: 0.4;
+    font-size: 0.95rem; line-height: 1; padding: 0 0.15rem; color: #6f6638;
+    touch-action: none; margin-top: 0.1rem;
+    &:hover { opacity: 1; }
+    &:active { cursor: grabbing; }
+  }
+  .del {
+    border: none; background: transparent; cursor: pointer; opacity: 0.4; font-size: 0.85rem;
+    &:hover { opacity: 1; }
+  }
+}
+
+.pane { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+/* ---- drag & drop (CDK) ---- */
+.cdk-drag-preview {
+  box-shadow: 0 6px 16px rgba(60, 50, 0, 0.3); border-radius: 8px;
+}
+.cdk-drag-placeholder { opacity: 0.4; }
+.cdk-drag-animating { transition: transform 200ms cubic-bezier(0, 0, 0.2, 1); }
+.rows.cdk-drop-list-dragging .row:not(.cdk-drag-placeholder) {
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+.pane-head { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid #e7dca0; background: #fdf8d8; }
+.pane app-note-editor { flex: 1; min-height: 0; display: flex; }
+
+.share-btn {
+  flex-shrink: 0;
+  border: 1px solid #cbb94f; border-radius: 6px; padding: 0.3rem 0.7rem;
+  background: #fffdf0; color: #6f6638; cursor: pointer; font-size: 0.8rem; font-weight: 600;
+  &:hover { background: #f1e7b8; }
+}
+
+.title-input {
+  width: 100%; border: none; background: transparent; font-size: 1.05rem;
+  font-weight: 700; color: #2f2b1a; outline: none;
+  &::placeholder { color: #b3a44e; }
+}
+
+/* ---- wall view ---- */
+/* Flex-wrap grid (not CSS `columns`, which is incompatible with CDK drag math). */
+.wall {
+  flex: 1; overflow: auto; padding: 1rem;
+  display: flex; flex-wrap: wrap; gap: 1rem;
+  align-content: flex-start; align-items: flex-start;
+}
+.card {
+  position: relative; width: 220px;
+  background: #fff6b8; border: 1px solid #e8db82; border-radius: 10px;
+  padding: 0.85rem 0.9rem 0.9rem; cursor: pointer;
+  box-shadow: 0 3px 8px rgba(60, 50, 0, 0.12);
+  &:hover { box-shadow: 0 6px 16px rgba(60, 50, 0, 0.2); }
+  &.checked { outline: 2px solid #4f7fff; }
+  h3 { margin: 0 0 0.4rem; font-size: 0.98rem; color: #3a3520; padding-right: 3rem; }
+  p { margin: 0; font-size: 0.83rem; color: #6f6638; max-height: 6.5rem; overflow: hidden; white-space: pre-line; }
+  /* Select checkbox sits top-right, just left of the delete button. */
+  .card-check { position: absolute; top: 0.5rem; right: 1.8rem; left: auto; }
+  .del {
+    position: absolute; top: 0.4rem; right: 0.45rem; border: none; background: transparent;
+    cursor: pointer; opacity: 0.4; &:hover { opacity: 1; }
+  }
+  .badges { margin-top: 0.5rem; display: flex; gap: 0.3rem; }
+}
+/* While the card is the CDK drag preview, drop the absolute layout context. */
+.card.cdk-drag-preview { cursor: grabbing; }
+
+.badge {
+  font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 999px; font-weight: 700;
+  &.pub { background: #cdeccd; color: #1d6b1d; }
+  &.shared { background: #d6e2ff; color: #2a4ea0; }
+}
+
+/* ---- editor modal (wall view) ---- */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(40, 35, 10, 0.45);
+  display: grid; place-items: center; z-index: 50; padding: 1.5rem;
+}
+.modal {
+  width: min(760px, 100%); height: min(80dvh, 700px);
+  background: #fffdf3; border-radius: 12px; overflow: hidden;
+  display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+.modal-head {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #e7dca0; background: #fdf8d8;
+  .close { border: none; background: transparent; font-size: 1rem; cursor: pointer; color: #6f6638; }
+}
+.modal app-note-editor { flex: 1; min-height: 0; display: flex; }

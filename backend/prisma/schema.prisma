@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Visibility {
+  PRIVATE
+  PUBLIC
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  displayName  String
+  passwordHash String
+  role         Role     @default(USER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  notes          Note[]
+  sharedNotes    NoteShare[]
+  invitesSent    Invite[]     @relation("InvitedBy")
+  uploadedImages ImageAsset[]
+}
+
+model Invite {
+  id          String    @id @default(uuid())
+  email       String
+  tokenHash   String    @unique
+  role        Role      @default(USER)
+  invitedById String
+  invitedBy   User      @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([email])
+}
+
+model Note {
+  id               String     @id @default(uuid())
+  ownerId          String
+  owner            User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title            String     @default("")
+  content          Json       // ProseMirror / TipTap document (jsonb)
+  visibility       Visibility @default(PRIVATE)
+  position         Float      @default(0) // sort order; lower = earlier. Float enables fractional inserts without a full renumber.
+  contentUpdatedAt DateTime   @default(now())
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  shares NoteShare[]
+  images ImageAsset[]
+
+  @@index([ownerId])
+  @@index([ownerId, position])
+}
+
+// Explicit per-user view grants on PRIVATE notes (view-only in the MVP).
+model NoteShare {
+  noteId    String
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([noteId, userId])
+  @@index([userId])
+}
+
+// Uploaded image files. The ProseMirror image node references these by id (/api/uploads/:id),
+// not by file path. Image size/position live in the doc JSON node attrs, not here.
+model ImageAsset {
+  id           String   @id @default(uuid())
+  noteId       String
+  note         Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  storagePath  String
+  mimeType     String
+  sizeBytes    Int
+  width        Int
+  height       Int
+  createdAt    DateTime @default(now())
+
+  @@index([noteId])
+}

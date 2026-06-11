@@ -1,0 +1,17 @@
+# Dev override: run ONLY Postgres in Docker (exposed on localhost:5432),
+# while you run the NestJS API and Angular app natively for fast reloads.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-stickynotes}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stickynotes}
+      POSTGRES_DB: ${POSTGRES_DB:-stickynotes}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+
+volumes:
+  pgdata_dev:

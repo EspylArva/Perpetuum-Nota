@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Council Review — stickynotes</title>
+<style>
+  :root{
+    --ink:#1d2530; --muted:#5d6b7a; --line:#e4e8ee; --bg:#f6f8fa; --card:#fff;
+    --contrarian:#d64545; --first:#2f80c2; --expand:#2f9e6f; --outsider:#9457c9; --exec:#d98a00;
+    --accent:#1d2530;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.55;}
+  .wrap{max-width:880px;margin:0 auto;padding:2.5rem 1.25rem 4rem;}
+  header.top{border-bottom:2px solid var(--line);padding-bottom:1.25rem;margin-bottom:1.75rem;}
+  .kicker{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700;}
+  h1{font-size:1.7rem;margin:.3rem 0 .5rem;}
+  .q{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+    border-radius:8px;padding:1rem 1.15rem;color:#33414f;font-size:.96rem;}
+  h2{font-size:1.15rem;margin:2.2rem 0 .8rem;padding-bottom:.35rem;border-bottom:1px solid var(--line);}
+  .verdict{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1.1rem 1.3rem;margin-bottom:1rem;
+    box-shadow:0 1px 2px rgba(20,30,45,.04);}
+  .verdict h3{margin:.2rem 0 .4rem;font-size:1rem;}
+  .verdict p,.verdict li{font-size:.93rem;color:#33414f;}
+  .first-thing{background:#fff8e8;border:1px solid #f0d692;border-left:4px solid var(--exec);border-radius:8px;
+    padding:1rem 1.15rem;margin-top:.5rem;}
+  .first-thing .lbl{font-weight:700;color:#9a6b00;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin:.4rem 0 0;}
+  @media(max-width:620px){.grid{grid-template-columns:1fr}}
+  .pos{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.7rem .85rem;font-size:.86rem;}
+  .pos .who{font-weight:700;font-size:.74rem;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem;}
+  .pos .stance{color:var(--muted);}
+  .who.contrarian{color:var(--contrarian)} .who.first{color:var(--first)} .who.expand{color:var(--expand)}
+  .who.outsider{color:var(--outsider)} .who.exec{color:var(--exec)}
+  .spectrum{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1rem 1.2rem;}
+  .spectrum .axis{display:flex;justify-content:space-between;font-size:.74rem;color:var(--muted);font-weight:700;
+    text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem;}
+  .bar{position:relative;height:42px;background:linear-gradient(90deg,#eaf2fb,#eafaf2);border-radius:6px;border:1px solid var(--line);}
+  .chip{position:absolute;top:50%;transform:translate(-50%,-50%);font-size:.7rem;font-weight:700;color:#fff;
+    padding:.18rem .5rem;border-radius:999px;white-space:nowrap;}
+  details{background:var(--card);border:1px solid var(--line);border-radius:8px;margin:.5rem 0;padding:.2rem .2rem;}
+  summary{cursor:pointer;padding:.7rem .9rem;font-weight:600;font-size:.92rem;list-style:none;}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸ ";color:var(--muted);}
+  details[open] summary::before{content:"▾ ";}
+  .body{padding:.2rem 1rem 1rem;font-size:.9rem;color:#33414f;}
+  .tag{display:inline-block;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    padding:.12rem .45rem;border-radius:4px;margin-left:.4rem;color:#fff;vertical-align:middle;}
+  .tag.contrarian{background:var(--contrarian)} .tag.first{background:var(--first)} .tag.expand{background:var(--expand)}
+  .tag.outsider{background:var(--outsider)} .tag.exec{background:var(--exec)}
+  footer{margin-top:2.5rem;padding-top:1rem;border-top:1px solid var(--line);font-size:.78rem;color:var(--muted);}
+  code{background:#eef1f5;padding:.05rem .3rem;border-radius:4px;font-size:.85em;}
+  ul{margin:.3rem 0 .3rem 0;padding-left:1.2rem;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="kicker">LLM Council · Briefing</div>
+    <h1>Review of the <em>stickynotes</em> project</h1>
+    <div class="q">Feedback on a just-shipped MVP of a self-hosted, dockerized Evernote-style notes app
+    (Angular + TipTap / NestJS + Prisma + Postgres) — architecture, features, security, and todos — plus a
+    prioritized plan. Small scale, few hand-picked users; v2 vision is floating windows + an Electron
+    per-note-window desktop client.</div>
+  </header>
+
+  <h2>Council Verdict</h2>
+
+  <div class="verdict">
+    <h3>✅ Where the council agrees</h3>
+    <ul>
+      <li><b>Harden before v2.</b> 4 of 5 advisors independently called floating windows / Electron / collab "polish on a house with no front-door lock."</li>
+      <li><b>Cheap network fixes are non-negotiable & fast:</b> login rate-limiting, helmet headers, distinct dev/prod JWT secret.</li>
+      <li><b>Sharing amplifies every content bug</b> — a <code>javascript:</code> link or unvalidated JSON in a <i>shared</i> note is stored-XSS against whoever opens it.</li>
+      <li><b>The architecture is a real asset</b> — ProseMirror-JSON + decoupled editor + per-note access predicate is unusually clean.</li>
+    </ul>
+  </div>
+
+  <div class="verdict">
+    <h3>⚔️ Where the council clashes</h3>
+    <p><b>Does security matter at this scale?</b> First-Principles argued the real adversary is just trusted users and urged validating the product metaphor first. <b>Peer review overruled it:</b> "blast radius is yourself" is wrong once notes are shared/PUBLIC. Do the ~1-day hardening regardless.</p>
+    <p><b>Go for 10x now?</b> Expansionist wants Yjs real-time collab as the headline bet. Reviewers flagged this as the biggest blind spot — building collab + a public API on stored-XSS + no-CSRF multiplies the attack surface. Upside is real, but <b>after</b> hardening.</p>
+  </div>
+
+  <div class="verdict">
+    <h3>🔦 Blind spots the peer review caught</h3>
+    <ul>
+      <li><b>Object-level authz isn't tested (IDOR).</b> No end-to-end access-matrix test that every note/image endpoint enforces <code>canAccess</code>. Highest-value test to write.</li>
+      <li><b>Operational recovery is a security issue.</b> No backups + no password reset = a locked-out admin or dead volume bricks the only instance.</li>
+      <li><b>No detection</b> — no audit/auth logging; a breach would be invisible.</li>
+      <li><b>Fixes ship unverified</b> — thin tests mean each security patch can silently regress; pair each with a test.</li>
+      <li><i>Correction:</i> the Postgres port is <b>not</b> host-exposed (only <code>web:8080</code> is published) — a reviewer's "exposed DB" concern doesn't apply.</li>
+    </ul>
+  </div>
+
+  <div class="verdict">
+    <h3>🎯 The recommendation</h3>
+    <p>Run a <b>one-week trust pass in three small batches</b>, then re-evaluate before any v2. Don't gold-plate (skip server-side ProseMirror schema validation for now). Don't chase Yjs/Electron yet. Full sequenced plan lives in <code>REVIEW.md</code>.</p>
+    <div class="first-thing">
+      <div class="lbl">The one thing to do first</div>
+      Add a URL-scheme allowlist to link insertion (<code>http</code>/<code>https</code>/<code>mailto</code>) and sanitize hrefs on render. ~1–2 hours, and it closes the one bug already exploitable <i>through the headline sharing feature</i>.
+    </div>
+  </div>
+
+  <h2>Advisor Positions</h2>
+  <div class="grid">
+    <div class="pos"><div class="who contrarian">The Contrarian</div><div class="stance">Rank by what bites first: <b>javascript: href XSS</b> (shared notes → account takeover) → CSRF → rate-limit. Content "type==='doc'" check is theater.</div></div>
+    <div class="pos"><div class="who first">First Principles</div><div class="stance">Real adversary = trusted users + public URL. Do cheap network fixes; <b>then validate the "windows-as-notes" metaphor</b> before more hardening. <i>(Partly overruled.)</i></div></div>
+    <div class="pos"><div class="who expand">The Expansionist</div><div class="stance">Not an Evernote clone — it's a <b>multiplayer doc substrate</b>. Bet big on Yjs collab, Electron windows, spatial canvas, public API. <i>(Defer past hardening.)</i></div></div>
+    <div class="pos"><div class="who outsider">The Outsider</div><div class="stance">Fix the <b>human</b> cliffs: admin lockout / no password reset, invisible sharing (no "shared with me"), no undo on batch delete, backups.</div></div>
+    <div class="pos"><div class="who exec">The Executor</div><div class="stance">One "trust hardening" PR this week: secret → helmet → throttle → href allowlist → CSRF. Then autosave-409 + image cleanup. v2 hard-defer.</div></div>
+  </div>
+
+  <h2>Convergence map</h2>
+  <div class="spectrum">
+    <div class="axis"><span>Harden &amp; fix fundamentals now</span><span>Build the bigger vision now</span></div>
+    <div class="bar">
+      <span class="chip" style="left:12%;background:var(--contrarian)">Contrarian</span>
+      <span class="chip" style="left:26%;background:var(--exec);top:32%">Executor</span>
+      <span class="chip" style="left:30%;background:var(--outsider);top:68%">Outsider</span>
+      <span class="chip" style="left:58%;background:var(--first)">First-Principles</span>
+      <span class="chip" style="left:88%;background:var(--expand)">Expansionist</span>
+    </div>
+    <p style="font-size:.8rem;color:var(--muted);margin:.6rem 0 0">Four advisors cluster on "harden first"; only the Expansionist pushes vision-first, and the peer review pulled First-Principles back toward the cheap-hardening consensus.</p>
+  </div>
+
+  <h2>Full advisor responses</h2>
+
+  <details>
+    <summary>The Contrarian <span class="tag contrarian">downside</span></summary>
+    <div class="body">
+      <p>No CSRF token with <code>SameSite=Lax</code> is the gap everyone under-rates: Lax does NOT protect you — top-level navigations and auto-submitted forms sail through. httpOnly cookie auth with zero CSRF on every mutating route is the real hole.</p>
+      <p>But rank honestly: the thing that bites first is the <code>javascript:</code> href — that's stored XSS in a multi-user app where notes are <b>shared</b>. Paste a poisoned link, share PUBLIC, you click it, my script runs in your session. Combined with no CSRF, one shared note compromises accounts. Fix sanitization now (one-line allowlist <code>http/https/mailto</code>).</p>
+      <p>Second: no login rate limiting — admin-only signup means few high-value accounts and no lockout, a brute-force gift; throttler is an afternoon. What you're rationalizing away: the arbitrary-JSON content endpoint — "type==='doc'" is theater; unvalidated ProseMirror JSON is a second XSS/DoS vector rendered back into other users' browsers.</p>
+      <p>Cosmetic by comparison: orphaned image cleanup (disk leak), last-write-wins (data loss, annoying not dangerous). Shared dev/prod JWT secret means your repo IS your prod key — rotate it. Order: href sanitize → CSRF → throttler → schema validation → secret rotation → helmet.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>The First-Principles Thinker <span class="tag first">reframe</span></summary>
+    <div class="body">
+      <p>First-principles question: who is the adversary, and what are they after? Few known users, manual access grants, no open signup, self-hosted behind nginx. That means your real threat surface is overwhelmingly: (1) the trusted users themselves, and (2) whatever's exposed on the public internet if this URL is reachable. Most of your "known gaps" are defenses against attackers you don't have.</p>
+      <p>CSRF, rate limiting, helmet, JWT secret hygiene matter the instant the URL is public, and they're cheap — do those. But link-href sanitization and content-JSON schema validation are XSS concerns, and your users are hand-picked; the blast radius of a malicious note is yourself. That's near the bottom.</p>
+      <p>The part nobody's saying: you're not building a SaaS. "Few users, manual grants" is a personal tool with a login. Stop spending architecture budget on multi-tenant permission elegance. The actual thing you're building is "individual windows with content" — v2 floating windows + Electron-per-note IS the product. The real question isn't "what do I harden" — it's "have I validated that the windows-as-notes metaphor is good?" Build the floating-window prototype now. Harden the cheap network-facing stuff. Then go prove the product.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>The Expansionist <span class="tag expand">upside</span></summary>
+    <div class="body">
+      <p>The MVP isn't an Evernote clone. ProseMirror JSON in jsonb plus a decoupled, signal-driven editor and a per-note access predicate is the substrate for a multiplayer document platform. The clone is the demo, not the product.</p>
+      <p>Highest-leverage bet: real-time collab via Yjs. Content is already ProseMirror, so <code>y-prosemirror</code> is nearly drop-in; your jsonb stays the snapshot/checkpoint while Yjs handles the live CRDT. The moment two cursors land in one note, "sticky notes" becomes a Notion/FigJam competitor. Your per-user grant model already IS the sharing layer collab needs. That's the 10x.</p>
+      <p>Second, the Electron "each note is an OS window" angle is more unique than collab — nobody ships a notes app where notes are first-class desktop windows you arrange like a real corkboard that also sync live. The undervalued asset: node attrs holding image geometry means your document IS a spatial canvas — the foundation for an infinite whiteboard. Seed now: templates (a note is just seed JSON) and a public document API (addressable JSON → headless CMS, embeds, webhooks). Build order: Yjs → spatial canvas → Electron.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>The Outsider <span class="tag outsider">fresh eyes</span></summary>
+    <div class="body">
+      <p><b>The "I am the admin and I locked myself out" trap.</b> No sign-up means the first thing a self-hoster does is create the admin account — how? If that's a config/CLI step it needs to be dead obvious. Worse: email + password but no password reset means if the admin forgets their own password, the whole app is bricked with no clear way back in. Fix the admin bootstrap and a reset path before anything floating-window.</p>
+      <p><b>Sharing has no doorbell.</b> I share a note with you — do you know? Where do you even look for "notes shared with me"? If the answer is "you don't, unless I tell you over text," sharing is decorative. A "Shared with me" view plus a notification badge makes the headline feature actually work.</p>
+      <p><b>Deletion with no undo, plus orphaned images.</b> Batch delete + no undo = one wrong click wipes a wall of notes. A trash/recycle bin (restore for 30 days) solves both the accident problem and quietly the leftover-image cleanup.</p>
+      <p><b>Backups.</b> A self-hoster's #1 fear is losing everything — one README paragraph on where notes/images live beats any feature. Plus mobile read + self-service password change. Floating windows and a desktop app are polish on a house with no front-door lock and no fire exit.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>The Executor <span class="tag exec">ship it</span></summary>
+    <div class="body">
+      <p>Ship a single "trust hardening" PR this week. Batch into one PR (1-2 days): <b>JWT secret</b> (one-liner, distinct env vars, do first, 5 min); <b>helmet + nginx headers</b> (30 min); <b>throttler on /auth/login</b> (30 min); <b>link href allowlist</b> (genuinely blocking — stored XSS lets a sharer pop your session; scheme-allowlist + sanitize on render, 1-2 hrs); <b>CSRF double-submit cookie</b> (real but contained, half a day). That PR makes it trustworthy to expose.</p>
+      <p>Second PR same week: <b>autosave 409</b> (the field already exists in the DTO; client just sends <code>baseContentUpdatedAt</code> + handles 409 — you're losing your own edits today); <b>orphaned images</b> delete-on-delete (skip the periodic sweep cron for now).</p>
+      <p>Defer, and say so out loud: <b>ProseMirror server validation</b> (low payoff for trusted users; render sanitization covers the actual XSS); <b>e2e tests</b> (add the auth/sharing access-matrix specs after hardening); <b>backups</b> (not a PR — a 10-line <code>pg_dump</code> cron, do it the day you put real notes in). All v2 features: hard defer. Order: secret → headers → throttle → XSS → CSRF, then 409, then image cleanup.</p>
+    </div>
+  </details>
+
+  <h2>Peer review highlights</h2>
+  <details>
+    <summary>What the reviewers converged on</summary>
+    <div class="body">
+      <ul>
+        <li><b>Strongest response (unanimous): the Contrarian.</b> Only one to trace the actual kill-chain — shared notes turn <code>javascript:</code> href XSS into cross-account takeover when combined with missing CSRF — and to rank by exploitability rather than checklist order.</li>
+        <li><b>Biggest blind spots (split): the Expansionist & First-Principles.</b> Expansionist chases collab/whiteboard/public-API on an unhardened base (multiplies attack surface). First-Principles' "blast radius is yourself" premise is factually wrong given sharing/PUBLIC notes — and it sounds reasonable, so it's the more <i>dangerous</i> miss.</li>
+        <li><b>What all five missed:</b> (1) object-level authorization / IDOR isn't end-to-end tested; (2) operational recovery (backups + password reset) is itself a security/durability risk; (3) no audit logging to detect a breach; (4) thin tests mean fixes ship unverified — pair each with a test.</li>
+      </ul>
+    </div>
+  </details>
+
+  <footer>
+    Generated 2026-06-01 · Counciled: architecture, features, security &amp; todos for the <b>stickynotes</b> project.
+    Full plan in <code>REVIEW.md</code>; full transcript in <code>council-transcript-2026-06-01.md</code>.
+    Advisor responses lightly condensed; findings grounded against the actual source.
+  </footer>
+</div>
+</body>
+</html>

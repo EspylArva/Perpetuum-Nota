@@ -1,0 +1,20 @@
+<div class="note-editor">
+  @if (editable()) {
+    <div class="toolbar">
+      <button type="button" title="Bold" [class.active]="isActive('bold')" (click)="toggleBold()"><b>B</b></button>
+      <button type="button" title="Italic" [class.active]="isActive('italic')" (click)="toggleItalic()"><i>I</i></button>
+      <button type="button" title="Underline" [class.active]="isActive('underline')" (click)="toggleUnderline()"><u>U</u></button>
+      <span class="sep"></span>
+      <button type="button" title="Heading 1" [class.active]="isActive('heading', { level: 1 })" (click)="toggleHeading(1)">H1</button>
+      <button type="button" title="Heading 2" [class.active]="isActive('heading', { level: 2 })" (click)="toggleHeading(2)">H2</button>
+      <span class="sep"></span>
+      <button type="button" title="Bulleted list" [class.active]="isActive('bulletList')" (click)="toggleBulletList()">• List</button>
+      <button type="button" title="Numbered list" [class.active]="isActive('orderedList')" (click)="toggleOrderedList()">1. List</button>
+      <span class="sep"></span>
+      <button type="button" title="Link" [class.active]="isActive('link')" (click)="setLink()">🔗</button>
+      <span class="spacer"></span>
+      <span class="status">{{ status() }}</span>
+    </div>
+  }
+  <div class="surface" tiptap [editor]="editor"></div>
+</div>

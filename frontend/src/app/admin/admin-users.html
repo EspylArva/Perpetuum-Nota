@@ -1,0 +1,56 @@
+<header class="bar">
+  <strong>Sticky Notes · Users</strong>
+  <span class="spacer"></span>
+  <a routerLink="/" class="ghost">← Back to notes</a>
+</header>
+
+<div class="content">
+  <section class="create card">
+    <h2>Create user</h2>
+    <p class="hint">No open signup — admins create accounts here.</p>
+    <div class="form">
+      <input placeholder="Email" type="email" [(ngModel)]="email" />
+      <input placeholder="Display name" [(ngModel)]="displayName" />
+      <input placeholder="Temp password (6+ chars)" type="text" [(ngModel)]="password" />
+      <select [(ngModel)]="role">
+        <option value="USER">User</option>
+        <option value="ADMIN">Admin</option>
+      </select>
+      <button class="primary" [disabled]="creating()" (click)="create()">
+        {{ creating() ? 'Creating…' : 'Create' }}
+      </button>
+    </div>
+    @if (error()) { <p class="err">{{ error() }}</p> }
+  </section>
+
+  <section class="card">
+    <h2>Users ({{ users().length }})</h2>
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        @for (u of users(); track u.id) {
+          <tr [class.inactive]="!u.isActive">
+            <td>{{ u.displayName }}</td>
+            <td class="email">{{ u.email }}</td>
+            <td>
+              <select [value]="u.role" (change)="setRole(u, $any($event.target).value)">
+                <option value="USER">User</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </td>
+            <td>{{ u.isActive ? 'Active' : 'Disabled' }}</td>
+            <td class="actions">
+              @if (u.isActive) {
+                <button (click)="setActive(u, false)">Disable</button>
+              } @else {
+                <button (click)="setActive(u, true)">Enable</button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+</div>
