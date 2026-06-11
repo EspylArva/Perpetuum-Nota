@@ -36,6 +36,8 @@ export interface NoteSummary {
   isOwner: boolean;
   position: number;
   pinned: boolean;
+  wallX: number | null;
+  wallY: number | null;
   deletedAt: Date | null;
   updatedAt: Date;
   contentUpdatedAt: Date;
@@ -230,6 +232,8 @@ export class NotesService {
       data: {
         ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
         ...(dto.pinned !== undefined ? { pinned: dto.pinned } : {}),
+        ...(dto.wallX !== undefined ? { wallX: dto.wallX } : {}),
+        ...(dto.wallY !== undefined ? { wallY: dto.wallY } : {}),
       },
       include: this.metaInclude(userId),
     });
@@ -478,6 +482,8 @@ export class NotesService {
       isOwner: note.ownerId === userId,
       position: note.position,
       pinned: note.pinned,
+      wallX: note.wallX,
+      wallY: note.wallY,
       deletedAt: note.deletedAt,
       updatedAt: note.updatedAt,
       contentUpdatedAt: note.contentUpdatedAt,

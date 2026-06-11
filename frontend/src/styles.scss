@@ -1,1 +1,53 @@
-/* You can add global styles to this file, and also import other style files */
+/* Global theme: Angular Material M3 tokens with light/dark via color-scheme. */
+@use '@angular/material' as mat;
+
+html {
+  color-scheme: light;
+  @include mat.theme((
+    color: (
+      primary: mat.$yellow-palette,
+      tertiary: mat.$orange-palette,
+    ),
+    typography: Roboto,
+    density: 0,
+  ));
+}
+
+/* Dark mode: ThemeStore toggles this class on <html>; every light-dark() token
+   (and all component styles built on var(--mat-sys-*)) flips with it. */
+html.dark {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+}
+
+/* App-level semantic tokens shared by component styles. The sticky-note brand
+   keeps its yellow tint in light mode and falls back to elevated surfaces in
+   dark mode (a glowing yellow card on black would be unreadable). */
+html {
+  --sn-card: var(--mat-sys-surface-container-high);
+  --sn-card-border: var(--mat-sys-outline-variant);
+  --sn-chip: var(--mat-sys-secondary-container);
+  --sn-chip-on: var(--mat-sys-on-secondary-container);
+  --sn-grid-cross: color-mix(in srgb, var(--mat-sys-on-surface) 22%, transparent);
+}
+
+html:not(.dark) {
+  --sn-card: #fff6b8;
+  --sn-card-border: #e8db82;
+}
+
+/* Density tweak: dialogs and form fields read better slightly tighter here. */
+.mat-mdc-form-field {
+  width: 100%;
+}

@@ -6,23 +6,23 @@
     </div>
     <p class="sub">Sign in to your notes</p>
 
-    <label>
-      <span>Email</span>
-      <input type="email" name="email" [(ngModel)]="email" required
+    <mat-form-field appearance="outline">
+      <mat-label>Email</mat-label>
+      <input matInput type="email" name="email" [(ngModel)]="email" required
              autocomplete="username" autofocus />
-    </label>
+    </mat-form-field>
 
-    <label>
-      <span>Password</span>
-      <input type="password" name="password" [(ngModel)]="password" required
+    <mat-form-field appearance="outline">
+      <mat-label>Password</mat-label>
+      <input matInput type="password" name="password" [(ngModel)]="password" required
              autocomplete="current-password" />
-    </label>
+    </mat-form-field>
 
     @if (error()) {
       <p class="err">{{ error() }}</p>
     }
 
-    <button type="submit" [disabled]="loading()">
+    <button matButton="filled" type="submit" [disabled]="loading()">
       {{ loading() ? 'Signing in…' : 'Sign in' }}
     </button>
   </form>

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -45,5 +46,13 @@ export class UsersController {
   @Roles('ADMIN')
   update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.users.update(id, dto);
+  }
+
+  // Permanent removal of a user and all their data (notes, images, shares).
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.users.remove(id, user.id);
   }
 }

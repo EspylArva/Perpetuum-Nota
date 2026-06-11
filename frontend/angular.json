@@ -30,6 +30,10 @@
               }
             ],
             "styles": [
+              "../node_modules/material-icons/iconfont/material-icons.css",
+              "../node_modules/@fontsource/roboto/400.css",
+              "../node_modules/@fontsource/roboto/500.css",
+              "../node_modules/@fontsource/roboto/700.css",
               "src/styles.scss"
             ]
           },
@@ -38,8 +42,8 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "1.2MB",
-                  "maximumError": "2MB"
+                  "maximumWarning": "1.6MB",
+                  "maximumError": "2.5MB"
                 },
                 {
                   "type": "anyComponentStyle",

@@ -1,17 +1,41 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import type { Role, UserAdminDto } from '@stickynotes/shared';
 import { UsersApi } from '../core/users.api';
+import { openConfirm } from '../shared-ui/confirm-dialog';
 
 @Component({
   selector: 'app-admin-users',
-  imports: [FormsModule, RouterLink],
+  imports: [
+    FormsModule,
+    RouterLink,
+    MatToolbarModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatSlideToggleModule,
+    MatTooltipModule,
+  ],
   templateUrl: './admin-users.html',
   styleUrl: './admin-users.scss',
 })
 export class AdminUsers implements OnInit {
   private readonly api = inject(UsersApi);
+  private readonly dialog = inject(MatDialog);
+  private readonly snack = inject(MatSnackBar);
 
   readonly users = signal<UserAdminDto[]>([]);
   readonly error = signal<string | null>(null);
@@ -64,7 +88,6 @@ export class AdminUsers implements OnInit {
   }
 
   setActive(u: UserAdminDto, isActive: boolean): void {
-    this.error.set(null);
     this.api.update(u.id, { isActive }).subscribe({
       next: (updated) =>
         this.users.update((list) =>
@@ -75,7 +98,6 @@ export class AdminUsers implements OnInit {
   }
 
   setRole(u: UserAdminDto, role: Role): void {
-    this.error.set(null);
     this.api.update(u.id, { role }).subscribe({
       next: (updated) =>
         this.users.update((list) =>
@@ -85,8 +107,30 @@ export class AdminUsers implements OnInit {
     });
   }
 
+  deleteUser(u: UserAdminDto): void {
+    openConfirm(this.dialog, {
+      title: `Delete ${u.displayName}?`,
+      message: `This permanently deletes ${u.email} together with ALL their notes, images, and shares. It cannot be undone.`,
+      confirmLabel: 'Delete user',
+      destructive: true,
+    }).subscribe((ok) => {
+      if (!ok) return;
+      this.api.remove(u.id).subscribe({
+        next: () => {
+          this.users.update((list) => list.filter((x) => x.id !== u.id));
+          this.snack.open(`${u.email} deleted.`, undefined, { duration: 3000 });
+        },
+        error: (e) => this.onUpdateError(e),
+      });
+    });
+  }
+
   private onUpdateError(e: { error?: { message?: string } }): void {
-    this.error.set(e?.error?.message ?? 'Could not update the user.');
-    this.refresh(); // revert the select/row to server state
+    this.snack.open(
+      e?.error?.message ?? 'Could not update the user.',
+      'Dismiss',
+      { duration: 5000 },
+    );
+    this.refresh(); // revert the control to server state
   }
 }

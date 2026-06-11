@@ -31,4 +31,9 @@ export class UsersApi {
   update(id: string, dto: UpdateUserDto): Observable<UserAdminDto> {
     return this.http.patch<UserAdminDto>(`/api/users/${id}`, dto);
   }
+
+  /** Admin: permanently delete a user and all their data. */
+  remove(id: string): Observable<{ id: string }> {
+    return this.http.delete<{ id: string }>(`/api/users/${id}`);
+  }
 }

@@ -1,10 +1,13 @@
 import { Component, inject, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { AuthService } from '../../core/auth.service';
 
 @Component({
   selector: 'app-change-password-dialog',
-  imports: [FormsModule],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
   template: `
     <div class="backdrop" (click)="cancel()">
       <div class="dialog" (click)="$event.stopPropagation()">
@@ -13,30 +16,30 @@ import { AuthService } from '../../core/auth.service';
         @if (done()) {
           <p class="ok">Password changed.</p>
           <div class="actions">
-            <button class="primary" (click)="cancel()">Close</button>
+            <button matButton="filled" (click)="cancel()">Close</button>
           </div>
         } @else {
           <form (submit)="$event.preventDefault(); save()">
-            <label>
-              Current password
-              <input type="password" name="current" [(ngModel)]="current" autocomplete="current-password" />
-            </label>
-            <label>
-              New password (6+ characters)
-              <input type="password" name="next" [(ngModel)]="next" autocomplete="new-password" />
-            </label>
-            <label>
-              Confirm new password
-              <input type="password" name="confirm" [(ngModel)]="confirm" autocomplete="new-password" />
-            </label>
+            <mat-form-field appearance="outline">
+              <mat-label>Current password</mat-label>
+              <input matInput type="password" name="current" [(ngModel)]="current" autocomplete="current-password" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>New password (6+ characters)</mat-label>
+              <input matInput type="password" name="next" [(ngModel)]="next" autocomplete="new-password" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Confirm new password</mat-label>
+              <input matInput type="password" name="confirm" [(ngModel)]="confirm" autocomplete="new-password" />
+            </mat-form-field>
 
             @if (error(); as e) {
               <p class="err">{{ e }}</p>
             }
 
             <div class="actions">
-              <button type="button" class="ghost" (click)="cancel()">Cancel</button>
-              <button type="submit" class="primary" [disabled]="saving()">
+              <button matButton type="button" (click)="cancel()">Cancel</button>
+              <button matButton="filled" type="submit" [disabled]="saving()">
                 {{ saving() ? 'Saving…' : 'Change password' }}
               </button>
             </div>
@@ -47,18 +50,24 @@ import { AuthService } from '../../core/auth.service';
   `,
   styles: [
     `
-      .backdrop { position: fixed; inset: 0; background: rgba(40,35,10,0.45); display: grid; place-items: center; z-index: 60; padding: 1.5rem; }
-      .dialog { width: min(380px, 100%); background: #fffdf3; border-radius: 12px; padding: 1.25rem 1.4rem; box-shadow: 0 24px 60px rgba(0,0,0,0.35); }
-      h2 { margin: 0 0 0.9rem; font-size: 1.15rem; color: #2f2b1a; }
-      label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; font-weight: 600; color: #6f6638; margin-bottom: 0.7rem; }
-      input { border: 1px solid #d9cd72; border-radius: 8px; padding: 0.45rem 0.6rem; font-size: 0.9rem; background: #fffdf0; outline: none; }
-      input:focus { border-color: #f0c808; }
-      .err { color: #b8431f; font-size: 0.82rem; margin: 0.2rem 0 0; }
-      .ok { color: #1d6b1d; font-size: 0.9rem; }
-      .actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
-      .ghost { border: 1px solid #cbb94f; border-radius: 8px; padding: 0.45rem 0.9rem; background: transparent; color: #6f6638; cursor: pointer; }
-      .primary { border: none; border-radius: 8px; padding: 0.45rem 1rem; background: #f0c808; color: #2f2b1a; font-weight: 700; cursor: pointer; }
-      .primary:disabled { opacity: 0.6; }
+      .backdrop {
+        position: fixed; inset: 0;
+        background: color-mix(in srgb, var(--mat-sys-scrim) 45%, transparent);
+        display: grid; place-items: center; z-index: 60; padding: 1.5rem;
+      }
+      .dialog {
+        width: min(400px, 100%);
+        background: var(--mat-sys-surface-container-high);
+        color: var(--mat-sys-on-surface);
+        border-radius: 16px;
+        padding: 1.25rem 1.4rem;
+        box-shadow: var(--mat-sys-level5);
+      }
+      h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
+      mat-form-field { margin-bottom: 0.3rem; }
+      .err { color: var(--mat-sys-error); font-size: 0.82rem; margin: 0.2rem 0 0; }
+      .ok { color: var(--mat-sys-tertiary); font-size: 0.9rem; }
+      .actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.6rem; }
     `,
   ],
 })

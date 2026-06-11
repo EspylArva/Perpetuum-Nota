@@ -39,6 +39,9 @@ export interface NoteSummaryDto {
   // explicit sort order (lower = earlier); set via drag-reorder
   position: number;
   pinned: boolean;
+  // wall-view grid coordinates in cell units; null = never hand-placed
+  wallX: number | null;
+  wallY: number | null;
   // non-null = in trash (ISO timestamp of the soft delete)
   deletedAt: string | null;
   updatedAt: string;
@@ -62,6 +65,8 @@ export interface CreateNoteDto {
 export interface UpdateNoteDto {
   title?: string;
   pinned?: boolean;
+  wallX?: number;
+  wallY?: number;
 }
 
 export interface UpdateNoteContentDto {

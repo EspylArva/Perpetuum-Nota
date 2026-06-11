@@ -61,6 +61,10 @@ model Note {
   visibility       Visibility @default(PRIVATE)
   position         Float      @default(0) // sort order; lower = earlier. Float enables fractional inserts without a full renumber.
   pinned           Boolean    @default(false)
+  // Wall-view grid coordinates in grid-cell units (top-left corner). Null =
+  // never placed by hand; the client auto-flows unplaced notes. Owner-set only.
+  wallX            Int?
+  wallY            Int?
   // Soft delete (trash). Null = live; set = in trash, hard-purged ~30 days later.
   deletedAt        DateTime?
   contentUpdatedAt DateTime   @default(now())

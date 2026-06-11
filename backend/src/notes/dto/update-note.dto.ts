@@ -1,4 +1,12 @@
-import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class UpdateNoteDto {
   @IsOptional()
@@ -9,4 +17,17 @@ export class UpdateNoteDto {
   @IsOptional()
   @IsBoolean()
   pinned?: boolean;
+
+  // Wall grid coordinates (cell units). Sent together when a card is dropped.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(10_000)
+  wallX?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(10_000)
+  wallY?: number;
 }

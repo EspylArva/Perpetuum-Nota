@@ -57,7 +57,7 @@ export class NotesApi {
 
   updateMeta(
     id: string,
-    patch: { title?: string; pinned?: boolean },
+    patch: { title?: string; pinned?: boolean; wallX?: number; wallY?: number },
   ): Observable<NoteSummaryDto> {
     return this.http.patch<NoteSummaryDto>(`/api/notes/${id}`, patch);
   }

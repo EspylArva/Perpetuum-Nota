@@ -72,11 +72,61 @@ predicted, (4) review/correct architecture, (5) implement missing planned featur
 - [x] Live-verification bugs fixed: cross-account OpenNotesStore cache (B11), api healthcheck
       localhost→127.0.0.1 (Alpine ::1), dev/prod compose project-name collision
 
-## Final state (2026-06-11)
-- Commits: 9a31d9a (baseline) → 046056f (backend) → 065531c (frontend) → 5ca0478 (fixes+docs)
+## Final state of round 1 (2026-06-11)
+- Commits: 9a31d9a (baseline) → 046056f (backend) → 065531c (frontend) → 5ca0478 (fixes+docs) → e1ff3a9
 - Both stacks coexist: prod on :8080 (left running), dev Postgres on :5432 (project stickynotes-dev)
 - All REVIEW.md PR 2 + PR 3 items closed; Evernote-parity features shipped
 - Remaining (user-blocked): TODO.md NAS deployment decisions (arch, delivery, storage, TLS)
+
+---
+
+## Round 2 (2026-06-11, same session): themes, Material UI, admin delete, wall grid
+
+### Phase 9: Docs refresh — Status: pending
+- [ ] Quick pass: anything stale from round 1; full feature docs at the end (Phase 13)
+
+### Phase 10: Backend — Status: pending
+- [ ] Note.wallX/wallY (Int?, grid units) migration + DTO + updateMeta (owner-only)
+- [ ] DELETE /api/users/:id (admin-only): block self-delete + last-active-admin; unlink
+      image files of their notes before cascade; e2e coverage (authz + guards + file rows)
+
+### Phase 11: Material rework + dark theme — Status: pending
+- [ ] context7: Angular Material 21 theming (M3 tokens, light/dark) — verify current API
+- [ ] Install @angular/material + local material-icons + @fontsource/roboto (offline assets)
+- [ ] Theme: yellow-sticky primary light + true dark; ThemeStore (localStorage + toggle in header)
+- [ ] Convert: login, header/toolbar (mat-toolbar), sidebar (mat-sidenav + nav-list + matBadge),
+      search (mat-form-field), sort (mat-select), view toggle (mat-button-toggle),
+      list rows controls (mat-checkbox/icon-buttons), editor toolbar (mat-icon-buttons),
+      tag chips (mat-chip-row + input), dialogs (share/password + NEW confirm dialog replacing
+      window.confirm), admin (mat-table-ish + slide-toggle + select + snackbar errors)
+- [ ] Keep TipTap surface untouched inside; keep all existing behaviors
+
+### Phase 12: Wall grid — Status: pending
+- [ ] CSS: faint crosses only at grid intersections (wall background)
+- [ ] Cards absolutely positioned by grid coords (CELL=40px), width snapped to cells,
+      height auto-snapped up to nearest cell multiple (directive)
+- [ ] Drag anywhere → snap to nearest intersection on drop → persist wallX/wallY (owner-only;
+      shared notes not draggable by viewer)
+- [ ] Unplaced notes (null coords): deterministic auto-layout (top-left scan, no overlap),
+      not persisted until user drags; simple downward nudge on drop collision
+- [ ] Multi-select/trash/pin/badges still work on grid cards
+
+### Phase 13: Verification + docs — Status: pending
+- [ ] Backend tests green (incl. new delete-user e2e)
+- [ ] Frontend build + tests green
+- [ ] Docker rebuild + Playwright: dark toggle persists, Material renders, admin delete user,
+      wall grid (crosses visible, drag-snap persists across reload, read-only for grantee)
+- [ ] README/PLAN/REVIEW/findings/progress updated
+
+### Key decisions (round 2)
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Theme mechanism | Material M3 theme + color-scheme toggle | One system for Material + custom CSS via tokens |
+| Icons/fonts | npm material-icons + @fontsource/roboto | Self-hosted app must work offline (no CDN) |
+| Grid coords | Note.wallX/wallY Int? in grid units | Per-note spatial layout is data, like position |
+| Grid size | CELL = 40px, card width 6 cells | Crisp snap, cards ≈ current 240px |
+| Overlap on drop | Nudge down to free row | Anywhere-placement without hidden notes |
+| Shared notes on grid | Visible at owner's coords, not draggable by viewer | Coords are note data; owner-only mutation holds |
 
 ## Key decisions
 | Decision | Choice | Why |

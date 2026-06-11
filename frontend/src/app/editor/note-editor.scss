@@ -12,50 +12,35 @@
   gap: 0.5rem;
   flex-wrap: wrap;
   padding: 0.5rem 0.7rem;
-  background: #ffe9e3;
-  border-bottom: 1px solid #f0b3a0;
-  color: #7a2e12;
+  background: var(--mat-sys-error-container);
+  border-bottom: 1px solid var(--mat-sys-error);
+  color: var(--mat-sys-on-error-container);
   font-size: 0.85rem;
 
-  button {
-    border: 1px solid #d9836a;
-    border-radius: 6px;
-    background: #fff;
-    color: #7a2e12;
-    padding: 0.25rem 0.6rem;
-    font-size: 0.8rem;
-    cursor: pointer;
-    &:hover { background: #ffd9cd; }
-    &.keep { background: #b8431f; border-color: #b8431f; color: #fff;
-      &:hover { background: #9c3717; } }
+  .keep {
+    --mat-button-filled-container-color: var(--mat-sys-error);
+    --mat-button-filled-label-text-color: var(--mat-sys-on-error);
   }
 }
 
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 0.2rem;
-  padding: 0.4rem 0.5rem;
-  border-bottom: 1px solid #e7dca0;
-  background: #fdf8d8;
+  gap: 0.1rem;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container-low);
   flex-wrap: wrap;
 
-  button {
-    min-width: 30px;
-    height: 28px;
-    padding: 0 0.45rem;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    background: transparent;
-    color: #4a4424;
-    font-size: 0.85rem;
-    cursor: pointer;
-    &:hover { background: #f1e7a8; }
-    &.active { background: #f0c808; border-color: #d9b400; }
+  button.active {
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+    border-radius: 50%;
   }
-  .sep { width: 1px; height: 18px; background: #e0d28a; margin: 0 0.25rem; }
+  .h-btn { font-size: 0.8rem; font-weight: 700; }
+  .sep { width: 1px; height: 20px; background: var(--mat-sys-outline-variant); margin: 0 0.25rem; }
   .spacer { flex: 1; }
-  .status { font-size: 0.75rem; color: #8a7f4a; padding-right: 0.3rem; }
+  .status { font-size: 0.75rem; color: var(--mat-sys-on-surface-variant); padding-right: 0.3rem; }
 }
 
 .surface {
@@ -63,19 +48,19 @@
   flex: 1;
   overflow: auto;
   padding: 1rem 1.25rem;
-  background: #fffdf3;
+  background: var(--mat-sys-surface);
 
   ::ng-deep .ProseMirror {
     outline: none;
     min-height: 100%;
-    color: #2f2b1a;
+    color: var(--mat-sys-on-surface);
     line-height: 1.55;
 
     h1 { font-size: 1.5rem; margin: 0.4em 0 0.3em; }
     h2 { font-size: 1.2rem; margin: 0.4em 0 0.3em; }
     p { margin: 0.4em 0; }
     ul, ol { padding-left: 1.4rem; margin: 0.4em 0; }
-    a { color: #1a6fd6; text-decoration: underline; cursor: pointer; }
+    a { color: var(--mat-sys-primary); text-decoration: underline; cursor: pointer; }
 
     // Task lists (checkboxes)
     ul[data-type='taskList'] {
@@ -87,10 +72,14 @@
         align-items: baseline;
         > label { flex: 0 0 auto; }
         > div { flex: 1 1 auto; }
-        &[data-checked='true'] > div { color: #8a7f4a; text-decoration: line-through; }
+        &[data-checked='true'] > div {
+          color: var(--mat-sys-on-surface-variant);
+          text-decoration: line-through;
+        }
       }
-      input[type='checkbox'] { cursor: pointer; }
+      input[type='checkbox'] { cursor: pointer; accent-color: var(--mat-sys-primary); }
     }
+
     // In-flow images stay within the editor width; explicit width/height (set by
     // the resize node view as inline styles) win over this. No `height: auto`,
     // which would otherwise fight the stored height and break resizing.
@@ -101,7 +90,9 @@
     .floating-image[data-floating='true'] img { max-width: none; }
     .sn-resize-handle {
       width: 10px; height: 10px; box-sizing: border-box;
-      background: #f0c808; border: 1px solid #6f6638; border-radius: 2px;
+      background: var(--mat-sys-primary);
+      border: 1px solid var(--mat-sys-on-primary);
+      border-radius: 2px;
       opacity: 0; transition: opacity 0.15s;
     }
     .floating-image:hover .sn-resize-handle { opacity: 1; }

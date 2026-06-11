@@ -593,4 +593,52 @@ describe('Access matrix (e2e)', () => {
       await request(server).get('/api/notes').set('Cookie', tmpCookie).expect(401);
     });
   });
+
+  // ---------- user deletion ----------
+  describe('user deletion (admin)', () => {
+    it('non-admin cannot delete users', async () => {
+      await request(server)
+        .delete(`/api/users/${strangerId}`)
+        .set('Cookie', owner)
+        .expect(403);
+    });
+
+    it('an admin cannot delete their own account', async () => {
+      const admins = await request(server).get('/api/users/manage').set('Cookie', admin).expect(200);
+      const self = admins.body.find((u: { email: string }) => u.email === 'admin@test.io');
+      await request(server).delete(`/api/users/${self.id}`).set('Cookie', admin).expect(409);
+    });
+
+    it('deleting a user removes their notes, shares, and image rows', async () => {
+      const victim = await prisma.user.create({
+        data: {
+          email: 'victim@test.io',
+          displayName: 'victim',
+          passwordHash: await argon2.hash(PASSWORD),
+        },
+      });
+      const victimCookie = await login('victim@test.io');
+      const noteId = await createNote(victimCookie, 'victim note');
+      const imgId = await uploadImage(victimCookie, noteId);
+      // grant + make sure the grantee could see it pre-delete
+      await request(server)
+        .put(`/api/notes/${noteId}/shares`)
+        .set('Cookie', victimCookie)
+        .send({ userIds: [granteeId] })
+        .expect(200);
+      await request(server).get(`/api/notes/${noteId}`).set('Cookie', grantee).expect(200);
+
+      await request(server)
+        .delete(`/api/users/${victim.id}`)
+        .set('Cookie', admin)
+        .expect(200);
+
+      // session dead, data gone for everyone
+      await request(server).get('/api/notes').set('Cookie', victimCookie).expect(401);
+      await request(server).get(`/api/notes/${noteId}`).set('Cookie', grantee).expect(404);
+      await request(server).get(`/api/uploads/${imgId}`).set('Cookie', grantee).expect(404);
+      expect(await prisma.note.count({ where: { ownerId: victim.id } })).toBe(0);
+      expect(await prisma.imageAsset.count({ where: { uploadedById: victim.id } })).toBe(0);
+    });
+  });
 });

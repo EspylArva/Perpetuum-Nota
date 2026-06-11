@@ -9,6 +9,9 @@ import {
   input,
   signal,
 } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Editor } from '@tiptap/core';
 import type { JSONContent } from '@tiptap/core';
 import { TiptapEditorDirective } from 'ngx-tiptap';
@@ -25,7 +28,7 @@ import { isSafeLinkUrl } from './safe-url';
  */
 @Component({
   selector: 'app-note-editor',
-  imports: [TiptapEditorDirective],
+  imports: [TiptapEditorDirective, MatButtonModule, MatIconModule, MatTooltipModule],
   templateUrl: './note-editor.html',
   styleUrl: './note-editor.scss',
 })
