@@ -28,6 +28,8 @@
   padding: 0.75rem 0.6rem;
   background: var(--mat-sys-surface-container-low);
   border-right: 1px solid var(--mat-sys-outline-variant);
+  transition: width 200ms ease;
+  overflow: hidden;
 
   .new-note { width: 100%; margin-bottom: 0.6rem; }
 
@@ -44,6 +46,38 @@
     font-size: 0.75rem;
     color: var(--mat-sys-on-surface-variant);
     align-self: center;
+  }
+
+  /* ---- collapsed desktop icon-rail ---- */
+  &.sidebar--collapsed {
+    width: 56px;
+    padding: 0.75rem 0;
+
+    .new-note span,
+    .tags-head,
+    .tag-list,
+    [matListItemTitle],
+    [matListItemMeta] {
+      display: none;
+    }
+
+    .new-note {
+      min-width: 0;
+      width: 40px;
+      margin: 0 auto 0.6rem;
+      padding: 0;
+
+      mat-icon { margin: 0; }
+    }
+
+    mat-nav-list {
+      padding: 0;
+      a[mat-list-item] {
+        padding: 0;
+        justify-content: center;
+        mat-icon { margin: 0 auto; }
+      }
+    }
   }
 }
 

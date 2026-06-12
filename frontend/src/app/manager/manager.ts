@@ -8,6 +8,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import {
@@ -23,6 +24,7 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
 import { MatChipInputEvent, MatChipsModule } from '@angular/material/chips';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -45,7 +47,9 @@ import { AuthService } from '../core/auth.service';
 import { NotesApi } from '../core/notes.api';
 import { TagsApi } from '../core/tags.api';
 import { ThemeStore } from '../core/theme.store';
+import { SidenavStore } from '../core/sidenav.store';
 import { ViewModeStore } from '../core/view-mode.store';
+import { filterTagOptions } from './tag-filter';
 import { NoteEditor } from '../editor/note-editor';
 import { ChangePasswordDialog } from '../features/change-password/change-password-dialog';
 import { openConfirm } from '../shared-ui/confirm-dialog';
@@ -70,6 +74,7 @@ interface CellPos {
     ShareDialog,
     ChangePasswordDialog,
     RouterLink,
+    FormsModule,
     CdkDropList,
     CdkDrag,
     CdkDragHandle,
@@ -87,6 +92,7 @@ interface CellPos {
     MatCheckboxModule,
     MatChipsModule,
     MatTooltipModule,
+    MatAutocompleteModule,
   ],
   templateUrl: './manager.html',
   styleUrl: './manager.scss',
@@ -102,6 +108,7 @@ export class Manager implements OnInit {
   private readonly breakpoints = inject(BreakpointObserver);
 
   readonly theme = inject(ThemeStore);
+  readonly sidenav = inject(SidenavStore);
   readonly user = this.auth.user;
   readonly mode = this.viewModeStore.mode;
   readonly sort = this.viewModeStore.sort;
@@ -127,6 +134,9 @@ export class Manager implements OnInit {
   readonly showPasswordDialog = signal(false);
   readonly sidebarOpen = signal(false); // mobile over-mode drawer
 
+  /** Current text typed into the tag chip input — drives autocomplete options. */
+  readonly tagQuery = signal('');
+
   private searchTimer?: ReturnType<typeof setTimeout>;
 
   // --- wall grid state ---
@@ -146,6 +156,10 @@ export class Manager implements OnInit {
   });
   readonly openNote = computed(() =>
     this.notes().find((n) => n.id === this.openId()),
+  );
+  /** Autocomplete options: all user tags minus the open note's tags, filtered by current input. */
+  readonly tagOptions = computed(() =>
+    filterTagOptions(this.tags(), this.openNote()?.tags ?? [], this.tagQuery()),
   );
   readonly selectionCount = computed(() => this.selected().size);
   readonly inTrash = computed(() => this.filter() === 'trash');
@@ -505,6 +519,16 @@ export class Manager implements OnInit {
     const note = this.openNote();
     const name = event.value.trim();
     event.chipInput.clear();
+    this.tagQuery.set('');
+    if (!note || !name) return;
+    this.saveTags(note.id, [...note.tags, name]);
+  }
+
+  addTagFromOption(event: MatAutocompleteSelectedEvent, inputEl: HTMLInputElement): void {
+    const note = this.openNote();
+    const name = (event.option.viewValue ?? '').trim();
+    inputEl.value = '';
+    this.tagQuery.set('');
     if (!note || !name) return;
     this.saveTags(note.id, [...note.tags, name]);
   }

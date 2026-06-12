@@ -4,6 +4,13 @@
       <mat-icon>menu</mat-icon>
     </button>
   }
+  @if (!isHandset()) {
+    <button matIconButton (click)="sidenav.toggle()"
+            [matTooltip]="sidenav.collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+            aria-label="Toggle sidebar">
+      <mat-icon>{{ sidenav.collapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+    </button>
+  }
   <span class="brand">Sticky Notes</span>
   <span class="spacer"></span>
   <button matIconButton (click)="theme.toggle()"
@@ -23,6 +30,7 @@
 <mat-sidenav-container class="layout">
   <mat-sidenav
     class="sidebar"
+    [class.sidebar--collapsed]="!isHandset() && sidenav.collapsed()"
     [mode]="isHandset() ? 'over' : 'side'"
     [opened]="!isHandset() || sidebarOpen()"
     (closedStart)="sidebarOpen.set(false)"
@@ -199,9 +207,17 @@
                     </mat-chip-row>
                   }
                 </mat-chip-grid>
-                <input class="tag-input" placeholder="Add tag…"
-                       [matChipInputFor]="chipGrid" [matChipInputAddOnBlur]="true"
+                <input #tagInputEl class="tag-input" placeholder="Add tag…"
+                       [matChipInputFor]="chipGrid" [matChipInputAddOnBlur]="false"
+                       [matAutocomplete]="tagAc"
+                       [value]="tagQuery()"
+                       (input)="tagQuery.set($any($event.target).value)"
                        (matChipInputTokenEnd)="addTagFromChip($event)" />
+                <mat-autocomplete #tagAc (optionSelected)="addTagFromOption($event, tagInputEl)">
+                  @for (opt of tagOptions(); track opt) {
+                    <mat-option [value]="opt">{{ opt }}</mat-option>
+                  }
+                </mat-autocomplete>
               </div>
             }
             <app-note-editor [noteId]="id" [editable]="canEditOpen()" [exportName]="openNote()?.title || 'note'" />
@@ -291,9 +307,17 @@
                     </mat-chip-row>
                   }
                 </mat-chip-grid>
-                <input class="tag-input" placeholder="Add tag…"
-                       [matChipInputFor]="chipGridModal" [matChipInputAddOnBlur]="true"
+                <input #tagInputModalEl class="tag-input" placeholder="Add tag…"
+                       [matChipInputFor]="chipGridModal" [matChipInputAddOnBlur]="false"
+                       [matAutocomplete]="tagAcModal"
+                       [value]="tagQuery()"
+                       (input)="tagQuery.set($any($event.target).value)"
                        (matChipInputTokenEnd)="addTagFromChip($event)" />
+                <mat-autocomplete #tagAcModal (optionSelected)="addTagFromOption($event, tagInputModalEl)">
+                  @for (opt of tagOptions(); track opt) {
+                    <mat-option [value]="opt">{{ opt }}</mat-option>
+                  }
+                </mat-autocomplete>
               </div>
             }
             @for (id of openIds(); track id) {
