@@ -89,6 +89,13 @@ function renderBlock(node: ProseMirrorNode, listDepth: number, orderedIndex: num
       return renderListItemBody(node, listDepth);
     }
 
+    case 'image': {
+      // FloatingImage is configured inline:false, so images are TOP-LEVEL block
+      // nodes (direct children of doc), not wrapped in a paragraph.
+      const src = (node.attrs?.['src'] as string | undefined) ?? '';
+      return `![](${src})`;
+    }
+
     case 'blockMath': {
       const latex = (node.attrs?.['latex'] as string | undefined) ?? '';
       return `$$${latex}$$`;

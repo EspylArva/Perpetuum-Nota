@@ -232,8 +232,16 @@ describe('docToMarkdown', () => {
   });
 
   describe('image', () => {
-    it('renders as ![](src)', () => {
+    it('renders inline image (inside paragraph) as ![](src)', () => {
       expect(docToMarkdown(doc(p(image('/api/uploads/abc123'))))).toBe('![](/api/uploads/abc123)');
+    });
+
+    it('renders block-level image (FloatingImage, direct child of doc) as ![](src)', () => {
+      // FloatingImage is configured inline:false — TipTap stores it as a top-level
+      // block node, not inside a paragraph. renderBlock must handle this case.
+      expect(
+        docToMarkdown({ type: 'doc', content: [{ type: 'image', attrs: { src: '/api/uploads/abc' } }] }),
+      ).toBe('![](/api/uploads/abc)');
     });
   });
 

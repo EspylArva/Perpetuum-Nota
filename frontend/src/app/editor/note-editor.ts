@@ -19,6 +19,7 @@ import { TiptapEditorDirective } from 'ngx-tiptap';
 import type { ProseMirrorDoc } from '@stickynotes/shared';
 import { UploadsApi } from '../core/uploads.api';
 import { EMPTY_DOC, buildExtensions } from './extensions';
+import { postProcessHtmlForExport } from './export-postprocess';
 import { docToMarkdown } from './markdown-export';
 import { OpenNote, OpenNotesStore } from './open-notes.store';
 import { isSafeLinkUrl } from './safe-url';
@@ -325,53 +326,6 @@ ${body}
     a.click();
     URL.revokeObjectURL(url);
   }
-}
-
-// ---------------------------------------------------------------------------
-// HTML export post-processing
-// ---------------------------------------------------------------------------
-
-/**
- * Replaces KaTeX-rendered math wrappers in exported HTML with plain LaTeX
- * delimiters so the exported file stays readable without KaTeX styles/scripts.
- *
- * TipTap's mathematics extension renders:
- *   - inline math as <span data-type="inline-math" data-latex="...">…katex html…</span>
- *   - block math  as <div  data-type="block-math"  data-latex="...">…katex html…</div>
- *
- * We replace the entire element with the raw delimiter string.
- */
-function postProcessHtmlForExport(html: string): string {
-  // Block math first (greedy on multi-line would be wrong, use [^]* with care).
-  // Pattern: opening div tag with data-type="block-math" … matching closing </div>.
-  // We use a non-greedy match on the content and rely on the data-latex attr.
-  let result = html.replace(
-    /<div[^>]*data-type="block-math"[^>]*data-latex="([^"]*)"[^>]*>[\s\S]*?<\/div>/gi,
-    (_match, latex: string) => `<p>$$${unescapeAttr(latex)}$$</p>`,
-  );
-
-  // Also handle the case where data-latex comes after data-type in the attribute order
-  result = result.replace(
-    /<div[^>]*data-latex="([^"]*)"[^>]*data-type="block-math"[^>]*>[\s\S]*?<\/div>/gi,
-    (_match, latex: string) => `<p>$$${unescapeAttr(latex)}$$</p>`,
-  );
-
-  // Inline math
-  result = result.replace(
-    /<span[^>]*data-type="inline-math"[^>]*data-latex="([^"]*)"[^>]*>[\s\S]*?<\/span>/gi,
-    (_match, latex: string) => `$${unescapeAttr(latex)}$`,
-  );
-
-  result = result.replace(
-    /<span[^>]*data-latex="([^"]*)"[^>]*data-type="inline-math"[^>]*>[\s\S]*?<\/span>/gi,
-    (_match, latex: string) => `$${unescapeAttr(latex)}$`,
-  );
-
-  return result;
-}
-
-function unescapeAttr(s: string): string {
-  return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
 }
 
 // ---------------------------------------------------------------------------
