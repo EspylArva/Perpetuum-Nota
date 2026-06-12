@@ -25,7 +25,7 @@ import { OpenNote, OpenNotesStore } from './open-notes.store';
 import { isSafeLinkUrl } from './safe-url';
 import { extractToc, TocEntry } from './toc';
 
-const TOC_STORAGE_KEY = 'note-editor.toc';
+const TOC_STORAGE_KEY = 'sticky.toc';
 
 /**
  * Presentation-agnostic note editor. Knows nothing about panes, windows, or

@@ -41,21 +41,31 @@ export function extractToc(doc: ProseMirrorDoc): TocEntry[] {
 // Helpers
 // ---------------------------------------------------------------------------
 
+// True atom/leaf node types: they have no opening+closing tokens — just 1 token.
+// Empty non-leaf nodes (paragraph, heading, codeBlock, blockquote …) still get
+// 2 tokens even when their content array is empty.
+const LEAF_TYPES = new Set([
+  'image',
+  'horizontalRule',
+  'hardBreak',
+  'inlineMath',
+  'blockMath',
+]);
+
 /**
  * Recursively computes the ProseMirror nodeSize for a JSON node:
- *   - text node  → text.length
- *   - leaf node  → 1
- *   - non-leaf   → 2 + sum(nodeSize of children)
+ *   - text node       → text.length
+ *   - atom/leaf node  → 1  (image, horizontalRule, hardBreak, inlineMath, blockMath)
+ *   - non-leaf node   → 2 + sum(nodeSize of children)  (even when content is empty)
  */
 function nodeSize(node: ProseMirrorNode): number {
   if (node.type === 'text') {
     return (node.text ?? '').length;
   }
-  const children = node.content ?? [];
-  if (children.length === 0) {
-    // Leaf block node (e.g. hardBreak, image, blockMath) — 1 token.
+  if (LEAF_TYPES.has(node.type)) {
     return 1;
   }
+  const children = node.content ?? [];
   return 2 + children.reduce((sum, child) => sum + nodeSize(child), 0);
 }
 

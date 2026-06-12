@@ -102,6 +102,17 @@ describe('extractToc', () => {
     expect(result.map((h) => h.text)).toEqual(['Top']);
   });
 
+  it('empty non-leaf node (empty paragraph) has nodeSize 2, not 1', () => {
+    // doc(emptyParagraph, heading(1, "Hi"))
+    // empty paragraph: nodeSize = 2 + 0 = 2  (opening + closing token, no children)
+    // heading "Hi":    nodeSize = 2 + 2 = 4
+    // So heading pos must be 2, not 1 (the old off-by-one bug).
+    const emptyParagraph: ProseMirrorNode = { type: 'paragraph' };
+    const result = extractToc(doc(emptyParagraph, heading(1, text('Hi'))));
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ text: 'Hi', pos: 2 });
+  });
+
   it('positions are correct for a three-heading doc', () => {
     // doc(heading(1, "A"), heading(2, "BB"), heading(3, "CCC"))
     // H1("A"): pos 0, nodeSize = 1+1+1 = 3

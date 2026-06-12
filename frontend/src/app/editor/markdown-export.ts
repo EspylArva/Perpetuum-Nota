@@ -26,16 +26,12 @@ export function docToMarkdown(doc: ProseMirrorDoc): string {
  */
 function renderChildren(nodes: ProseMirrorNode[], listDepth: number): string[] {
   const out: string[] = [];
-  let orderedCounter = 0;
 
   for (const node of nodes) {
-    const block = renderBlock(node, listDepth, orderedCounter);
+    const block = renderBlock(node, listDepth);
     if (block !== null) {
       out.push(block);
-      // Track ordered list counters — we increment for every listItem sibling
-      // inside an orderedList; the counter resets when we enter a fresh call.
     }
-    if (node.type === 'listItem') orderedCounter++;
   }
 
   return out;
@@ -45,7 +41,7 @@ function renderChildren(nodes: ProseMirrorNode[], listDepth: number): string[] {
  * Render a single block-level node.  Returns null for nodes that produce no
  * output (e.g. an empty paragraph).
  */
-function renderBlock(node: ProseMirrorNode, listDepth: number, orderedIndex: number): string | null {
+function renderBlock(node: ProseMirrorNode, listDepth: number): string | null {
   switch (node.type) {
     case 'paragraph': {
       const inline = renderInlineContent(node.content ?? []);
@@ -128,14 +124,26 @@ function renderList(
   items.forEach((item, idx) => {
     const prefix = kind === 'ordered' ? `${idx + 1}. ` : '- ';
     const body = renderListItemBody(item, depth + 1);
-    // The first line of the body gets the bullet; subsequent lines already
-    // carry their own indentation from deeper render calls.
+    // The first line of the body gets the bullet prefix.
+    // Continuation lines that come from nested lists already carry their own
+    // indentation (produced by deeper renderList calls with depth+1).
+    // Continuation lines that come from additional paragraphs inside the same
+    // list item must be indented to the current list depth so they stay visually
+    // attached to their bullet.
     const firstLineEnd = body.indexOf('\n');
     if (firstLineEnd === -1) {
       lines.push(`${indent}${prefix}${body}`);
     } else {
-      lines.push(`${indent}${prefix}${body.slice(0, firstLineEnd)}`);
-      lines.push(body.slice(firstLineEnd + 1));
+      const firstLine = body.slice(0, firstLineEnd);
+      const rest = body.slice(firstLineEnd + 1);
+      lines.push(`${indent}${prefix}${firstLine}`);
+      // Indent continuation lines that are not already indented (i.e. plain
+      // paragraph text from a second paragraph in the same list item).
+      const indentedRest = rest
+        .split('\n')
+        .map((line) => (line.startsWith('  ') || line === '' ? line : `${indent}  ${line}`))
+        .join('\n');
+      lines.push(indentedRest);
     }
   });
 
@@ -157,7 +165,7 @@ function renderListItemBody(item: ProseMirrorNode, childDepth: number): string {
     } else if (child.type === 'taskList') {
       parts.push(renderTaskList(child.content ?? [], childDepth));
     } else {
-      const fallback = renderBlock(child, childDepth, 0);
+      const fallback = renderBlock(child, childDepth);
       if (fallback) parts.push(fallback);
     }
   }
@@ -173,7 +181,19 @@ function renderTaskList(items: ProseMirrorNode[], depth: number): string {
     const checked = !!(item.attrs?.['checked'] as boolean | undefined);
     const box = checked ? '[x]' : '[ ]';
     const body = renderListItemBody(item, depth + 1);
-    lines.push(`${indent}- ${box} ${body}`);
+    const firstLineEnd = body.indexOf('\n');
+    if (firstLineEnd === -1) {
+      lines.push(`${indent}- ${box} ${body}`);
+    } else {
+      const firstLine = body.slice(0, firstLineEnd);
+      const rest = body.slice(firstLineEnd + 1);
+      lines.push(`${indent}- ${box} ${firstLine}`);
+      const indentedRest = rest
+        .split('\n')
+        .map((line) => (line.startsWith('  ') || line === '' ? line : `${indent}  ${line}`))
+        .join('\n');
+      lines.push(indentedRest);
+    }
   }
 
   return lines.join('\n');
@@ -217,10 +237,11 @@ function renderInline(node: ProseMirrorNode): string {
 // Mark application
 // ---------------------------------------------------------------------------
 
-// Marks whose rendering requires special treatment, applied outermost → innermost.
-// textStyle (color/fontSize) is intentionally dropped here (listed in the
-// marks array but handled by the `default` case which returns the text as-is).
-const MARK_ORDER = ['link', 'bold', 'italic', 'strike', 'code', 'underline'];
+// Marks applied innermost → outermost (index 0 wraps text first, index N wraps last).
+// `code` must be innermost so that bold+code yields **`text`** rather than `**text**`.
+// `link` is outermost so the displayed text (possibly bold/italic) stays inside [...].
+// textStyle (color/fontSize) is intentionally dropped (handled by the `default` case).
+const MARK_ORDER = ['code', 'bold', 'italic', 'strike', 'underline', 'link'];
 
 function applyMarks(text: string, marks: ProseMirrorMark[]): string {
   if (marks.length === 0) return text;

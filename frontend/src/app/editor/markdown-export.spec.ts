@@ -150,6 +150,19 @@ describe('docToMarkdown', () => {
       expect(result).toContain('**');
       expect(result).toContain('*');
     });
+
+    it('bold + italic produces canonical combined marker ***text*** or **_text_**', () => {
+      const result = docToMarkdown(doc(p(text('hi', { type: 'bold' }, { type: 'italic' }))));
+      // With MARK_ORDER [code, bold, italic, ...]: bold wraps first → **hi**,
+      // then italic wraps that → ***hi*** (markdown renders as bold+italic).
+      expect(result).toBe('***hi***');
+    });
+
+    it('bold + code produces **`text`** (code innermost, bold outermost)', () => {
+      const result = docToMarkdown(doc(p(text('fn()', { type: 'bold' }, { type: 'code' }))));
+      // code must wrap the text first, then bold wraps the code span.
+      expect(result).toBe('**`fn()`**');
+    });
   });
 
   describe('codeBlock', () => {
@@ -209,6 +222,16 @@ describe('docToMarkdown', () => {
       );
       expect(docToMarkdown(doc(nested))).toBe('1. a\n  1. a1\n  2. a2\n2. b');
     });
+
+    it('indents continuation paragraph of a list item under the bullet', () => {
+      // A listItem with two paragraphs: the second paragraph must be indented
+      // by 2 spaces so it visually belongs to the bullet, not column 0.
+      const list = bulletList(
+        listItem(p(text('first para')), p(text('second para'))),
+      );
+      const result = docToMarkdown(doc(list));
+      expect(result).toBe('- first para\n  second para');
+    });
   });
 
   describe('taskList', () => {
@@ -228,6 +251,16 @@ describe('docToMarkdown', () => {
       expect(
         docToMarkdown(doc(taskList(taskItem(false, p(text('a'))), taskItem(true, p(text('b')))))),
       ).toBe('- [ ] a\n- [x] b');
+    });
+
+    it('indents nested task list items by 2 spaces', () => {
+      // A task item whose body contains a nested task list.
+      const nested = taskList(
+        taskItem(false, p(text('outer')), taskList(taskItem(false, p(text('inner'))))),
+      );
+      const result = docToMarkdown(doc(nested));
+      expect(result).toContain('- [ ] outer');
+      expect(result).toContain('  - [ ] inner');
     });
   });
 
