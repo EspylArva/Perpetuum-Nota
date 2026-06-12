@@ -5,13 +5,21 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import type { UserAdminDto } from '@stickynotes/shared';
 import { UsersApi } from '../core/users.api';
 import { generateTempPassword } from './password-gen';
 
 @Component({
   selector: 'app-reset-password-dialog',
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule],
+  imports: [
+    FormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatTooltipModule,
+  ],
   template: `
     <div class="backdrop" (click)="cancel()">
       <div class="dialog" (click)="$event.stopPropagation()">
@@ -120,9 +128,10 @@ export class ResetPasswordDialog {
   }
 
   copy(): void {
-    navigator.clipboard.writeText(this.password).then(() => {
-      this.snack.open('Copied to clipboard.', undefined, { duration: 2000 });
-    });
+    navigator.clipboard.writeText(this.password).then(
+      () => this.snack.open('Copied to clipboard.', undefined, { duration: 2000 }),
+      () => this.snack.open('Couldn’t copy — select and copy manually.', undefined, { duration: 3000 }),
+    );
   }
 
   cancel(): void {
