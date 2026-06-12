@@ -80,6 +80,65 @@
       input[type='checkbox'] { cursor: pointer; accent-color: var(--mat-sys-primary); }
     }
 
+    // Blockquote: vertical-line emphasis in the primary token, muted text.
+    blockquote {
+      margin: 0.6em 0;
+      padding: 0.1em 0 0.1em 0.9em;
+      border-left: 4px solid var(--mat-sys-primary);
+      color: var(--mat-sys-on-surface-variant);
+    }
+
+    // Inline code.
+    code {
+      font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+    }
+
+    // Framed code block — surface-container tint so it reads on both themes,
+    // 1px border, rounded, monospace, padding. The inner <code> resets the
+    // inline-code framing so highlighting tokens show cleanly.
+    pre {
+      background: color-mix(in srgb, var(--mat-sys-surface-container) 80%, var(--mat-sys-surface));
+      border: 1px solid var(--mat-sys-outline-variant);
+      border-radius: 6px;
+      padding: 0.75em 1em;
+      margin: 0.5em 0;
+      overflow-x: auto;
+      font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+      line-height: 1.45;
+
+      code {
+        background: none;
+        padding: 0;
+        font-size: inherit;
+        color: var(--mat-sys-on-surface);
+      }
+    }
+
+    // highlight.js token colours. Light defaults; html.dark overrides below.
+    .hljs-comment, .hljs-quote { color: #6a737d; font-style: italic; }
+    .hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-name, .hljs-tag { color: #d73a49; }
+    .hljs-string, .hljs-title, .hljs-section, .hljs-attribute, .hljs-literal,
+    .hljs-template-tag, .hljs-template-variable, .hljs-type, .hljs-addition { color: #22863a; }
+    .hljs-number, .hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta,
+    .hljs-selector-id, .hljs-selector-class { color: #005cc5; }
+    .hljs-attr, .hljs-variable, .hljs-params { color: #e36209; }
+    .hljs-function .hljs-title, .hljs-title.function_ { color: #6f42c1; }
+    .hljs-deletion { color: #b31d28; }
+    .hljs-emphasis { font-style: italic; }
+    .hljs-strong { font-weight: 700; }
+
+    // KaTeX math nodes.
+    .tiptap-mathematics-render {
+      display: inline-block;
+    }
+    .tiptap-mathematics-render[data-type='block-math'] {
+      display: block;
+      text-align: center;
+      margin: 0.5em 0;
+    }
+
     // In-flow images stay within the editor width; explicit width/height (set by
     // the resize node view as inline styles) win over this. No `height: auto`,
     // which would otherwise fight the stored height and break resizing.

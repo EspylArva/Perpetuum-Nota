@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Editor } from '@tiptap/core';
 import type { JSONContent } from '@tiptap/core';
@@ -28,7 +29,13 @@ import { isSafeLinkUrl } from './safe-url';
  */
 @Component({
   selector: 'app-note-editor',
-  imports: [TiptapEditorDirective, MatButtonModule, MatIconModule, MatTooltipModule],
+  imports: [
+    TiptapEditorDirective,
+    MatButtonModule,
+    MatIconModule,
+    MatMenuModule,
+    MatTooltipModule,
+  ],
   templateUrl: './note-editor.html',
   styleUrl: './note-editor.scss',
 })
@@ -168,6 +175,37 @@ export class NoteEditor implements OnInit, OnDestroy {
   toggleTaskList(): void {
     this.editor.chain().focus().toggleTaskList().run();
   }
+  toggleCodeBlock(): void {
+    this.editor.chain().focus().toggleCodeBlock().run();
+  }
+
+  /** Theme-agnostic swatches: each reads acceptably on light and dark surfaces. */
+  readonly textColors: readonly string[] = [
+    '#e53935', // red
+    '#fb8c00', // orange
+    '#fdd835', // yellow
+    '#43a047', // green
+    '#00897b', // teal
+    '#1e88e5', // blue
+    '#5e35b1', // purple
+    '#d81b60', // pink
+    '#6d4c41', // brown
+    '#757575', // grey
+  ];
+
+  setColor(color: string): void {
+    this.editor.chain().focus().setColor(color).run();
+  }
+  unsetColor(): void {
+    this.editor.chain().focus().unsetColor().run();
+  }
+  setFontSize(size: string): void {
+    this.editor.chain().focus().setFontSize(size).run();
+  }
+  unsetFontSize(): void {
+    this.editor.chain().focus().unsetFontSize().run();
+  }
+
   setLink(): void {
     const prev = (this.editor.getAttributes('link')['href'] as string) ?? '';
     const url = window.prompt('Link URL', prev);
@@ -203,6 +241,9 @@ export class NoteEditor implements OnInit, OnDestroy {
   img { max-width: 100%; height: auto; }
   ul[data-type="taskList"] { list-style: none; padding-left: 0.2em; }
   ul[data-type="taskList"] li { display: flex; gap: 0.45em; align-items: baseline; }
+  pre { background: #f4f4f5; border: 1px solid #e0e0e0; border-radius: 6px; padding: 0.75em 1em; overflow-x: auto; }
+  pre code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
+  blockquote { border-left: 4px solid #1e88e5; margin: 0.6em 0; padding: 0.1em 0 0.1em 1em; color: #555; }
 </style>
 </head>
 <body>

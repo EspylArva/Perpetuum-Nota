@@ -33,6 +33,39 @@
       <button matIconButton matTooltip="Checklist" [class.active]="isActive('taskList')" (click)="toggleTaskList()">
         <mat-icon>checklist</mat-icon>
       </button>
+      <button matIconButton matTooltip="Code block" [class.active]="isActive('codeBlock')" (click)="toggleCodeBlock()">
+        <mat-icon>code</mat-icon>
+      </button>
+      <span class="sep"></span>
+      <button matIconButton matTooltip="Text color" [matMenuTriggerFor]="colorMenu">
+        <mat-icon>format_color_text</mat-icon>
+      </button>
+      <mat-menu #colorMenu="matMenu" class="color-menu">
+        <div class="swatch-grid">
+          @for (color of textColors; track color) {
+            <button
+              type="button"
+              class="swatch"
+              [style.background]="color"
+              [attr.aria-label]="'Set text color ' + color"
+              (click)="setColor(color)"
+            ></button>
+          }
+        </div>
+        <button mat-menu-item (click)="unsetColor()">
+          <mat-icon>format_color_reset</mat-icon>
+          <span>Default</span>
+        </button>
+      </mat-menu>
+      <button matIconButton matTooltip="Text size" [matMenuTriggerFor]="sizeMenu">
+        <mat-icon>format_size</mat-icon>
+      </button>
+      <mat-menu #sizeMenu="matMenu">
+        <button mat-menu-item (click)="setFontSize('0.85em')">Small</button>
+        <button mat-menu-item (click)="unsetFontSize()">Normal</button>
+        <button mat-menu-item (click)="setFontSize('1.25em')">Large</button>
+        <button mat-menu-item (click)="setFontSize('1.5em')">Huge</button>
+      </mat-menu>
       <span class="sep"></span>
       <button matIconButton matTooltip="Link" [class.active]="isActive('link')" (click)="setLink()">
         <mat-icon>link</mat-icon>
