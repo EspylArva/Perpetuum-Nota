@@ -17,8 +17,11 @@ import type { Extensions } from '@tiptap/core';
 // a paragraph, so it must consume the line). Anchored to the line start.
 export const BLOCK_MATH_INPUT = /^\$\$([^$\n]+?)\$\$$/;
 // $…$ → inline math. A single `$` not adjacent to another `$` (so `$$…$$`
-// is left for the block rule), no inner `$` or newline.
-export const INLINE_MATH_INPUT = /(?<!\$)\$([^$\n]+?)\$$/;
+// is left for the block rule), no inner `$` or newline. The body must start
+// and end with a non-space so prose between two currency amounts ("paid $20
+// then $") is not swallowed as math — single-`$` delimiters make some
+// ambiguity unavoidable; this keeps the common false positive out.
+export const INLINE_MATH_INPUT = /(?<!\$)\$([^\s$](?:[^$\n]*[^\s$])?)\$$/;
 
 const MathBlock = BlockMath.extend({
   addInputRules() {

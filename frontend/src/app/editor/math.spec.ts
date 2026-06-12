@@ -19,6 +19,29 @@ describe('math input-rule delimiters', () => {
     it('rejects an empty body', () => {
       expect(INLINE_MATH_INPUT.test('$$')).toBe(false);
     });
+
+    it('matches a single-character body', () => {
+      expect(INLINE_MATH_INPUT.exec('price is $n$')?.[1]).toBe('n');
+    });
+
+    it('does not swallow prose between currency amounts', () => {
+      // "paid $20 then typed another $" — body would be "20 then typed another "
+      expect(INLINE_MATH_INPUT.test('paid $20 then typed another $')).toBe(false);
+      expect(INLINE_MATH_INPUT.test('items $5 and $6 cost $')).toBe(false);
+    });
+
+    it('rejects bodies with leading or trailing spaces', () => {
+      expect(INLINE_MATH_INPUT.test('$ x^2$')).toBe(false);
+      expect(INLINE_MATH_INPUT.test('$x^2 $')).toBe(false);
+    });
+
+    it('still matches multi-word latex with internal spaces', () => {
+      expect(INLINE_MATH_INPUT.exec('$a + b$')?.[1]).toBe('a + b');
+    });
+
+    it('never treats a $ as the start of the body', () => {
+      expect(INLINE_MATH_INPUT.test('x$$y$')).toBe(false);
+    });
   });
 
   describe('block ($$…$$)', () => {
