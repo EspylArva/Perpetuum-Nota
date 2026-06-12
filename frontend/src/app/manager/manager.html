@@ -35,23 +35,28 @@
     [opened]="!isHandset() || sidebarOpen()"
     (closedStart)="sidebarOpen.set(false)"
   >
-    <button matButton="filled" class="new-note" (click)="create()" [disabled]="inTrash()">
-      <mat-icon>add</mat-icon> New note
+    <button matButton="filled" class="new-note" (click)="create()" [disabled]="inTrash()"
+            aria-label="New note" matTooltip="New note">
+      <mat-icon>add</mat-icon> <span>New note</span>
     </button>
     <mat-nav-list>
-      <a mat-list-item [activated]="filter() === 'all' && !activeTag()" (click)="setFilter('all')">
+      <a mat-list-item [activated]="filter() === 'all' && !activeTag()" (click)="setFilter('all')"
+         aria-label="All notes" matTooltip="All notes">
         <mat-icon matListItemIcon>notes</mat-icon>
         <span matListItemTitle>All notes</span>
       </a>
-      <a mat-list-item [activated]="filter() === 'mine'" (click)="setFilter('mine')">
+      <a mat-list-item [activated]="filter() === 'mine'" (click)="setFilter('mine')"
+         aria-label="My notes" matTooltip="My notes">
         <mat-icon matListItemIcon>person</mat-icon>
         <span matListItemTitle>My notes</span>
       </a>
-      <a mat-list-item [activated]="filter() === 'shared'" (click)="setFilter('shared')">
+      <a mat-list-item [activated]="filter() === 'shared'" (click)="setFilter('shared')"
+         aria-label="Shared with me" matTooltip="Shared with me">
         <mat-icon matListItemIcon [matBadge]="sharedBadge() || null" matBadgeColor="warn" matBadgeSize="small">group</mat-icon>
         <span matListItemTitle>Shared with me</span>
       </a>
-      <a mat-list-item [activated]="inTrash()" (click)="setFilter('trash')">
+      <a mat-list-item [activated]="inTrash()" (click)="setFilter('trash')"
+         aria-label="Trash" matTooltip="Trash">
         <mat-icon matListItemIcon>delete</mat-icon>
         <span matListItemTitle>Trash</span>
       </a>
@@ -67,6 +72,17 @@
             <span matListItemMeta>{{ t.count }}</span>
           </a>
         }
+      </mat-nav-list>
+    }
+
+    @if (!isHandset() && sidenav.collapsed() && activeTag()) {
+      <mat-nav-list>
+        <a mat-list-item [activated]="true"
+           [attr.aria-label]="'Filtered by: ' + activeTag() + ' — click to clear'"
+           [matTooltip]="'Filtered by: ' + activeTag() + ' — click to clear'"
+           (click)="setFilter('all')">
+          <mat-icon matListItemIcon>sell</mat-icon>
+        </a>
       </mat-nav-list>
     }
   </mat-sidenav>
@@ -208,11 +224,12 @@
                   }
                 </mat-chip-grid>
                 <input #tagInputEl class="tag-input" placeholder="Add tag…"
+                       #trigger="matAutocompleteTrigger"
                        [matChipInputFor]="chipGrid" [matChipInputAddOnBlur]="false"
                        [matAutocomplete]="tagAc"
                        [value]="tagQuery()"
                        (input)="tagQuery.set($any($event.target).value)"
-                       (matChipInputTokenEnd)="addTagFromChip($event)" />
+                       (matChipInputTokenEnd)="addTagFromChip($event, trigger)" />
                 <mat-autocomplete #tagAc (optionSelected)="addTagFromOption($event, tagInputEl)">
                   @for (opt of tagOptions(); track opt) {
                     <mat-option [value]="opt">{{ opt }}</mat-option>
@@ -308,11 +325,12 @@
                   }
                 </mat-chip-grid>
                 <input #tagInputModalEl class="tag-input" placeholder="Add tag…"
+                       #triggerModal="matAutocompleteTrigger"
                        [matChipInputFor]="chipGridModal" [matChipInputAddOnBlur]="false"
                        [matAutocomplete]="tagAcModal"
                        [value]="tagQuery()"
                        (input)="tagQuery.set($any($event.target).value)"
-                       (matChipInputTokenEnd)="addTagFromChip($event)" />
+                       (matChipInputTokenEnd)="addTagFromChip($event, triggerModal)" />
                 <mat-autocomplete #tagAcModal (optionSelected)="addTagFromOption($event, tagInputModalEl)">
                   @for (opt of tagOptions(); track opt) {
                     <mat-option [value]="opt">{{ opt }}</mat-option>

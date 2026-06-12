@@ -8,7 +8,6 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import {
@@ -24,7 +23,7 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
+import { MatAutocompleteModule, MatAutocompleteSelectedEvent, MatAutocompleteTrigger } from '@angular/material/autocomplete';
 import { MatChipInputEvent, MatChipsModule } from '@angular/material/chips';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -74,7 +73,6 @@ interface CellPos {
     ShareDialog,
     ChangePasswordDialog,
     RouterLink,
-    FormsModule,
     CdkDropList,
     CdkDrag,
     CdkDragHandle,
@@ -515,7 +513,13 @@ export class Manager implements OnInit {
 
   // --- tags on the open note ---
 
-  addTagFromChip(event: MatChipInputEvent): void {
+  addTagFromChip(event: MatChipInputEvent, trigger: MatAutocompleteTrigger): void {
+    // If an autocomplete option is highlighted, the (optionSelected) handler owns
+    // this Enter press — avoid double-adding by bailing out here.
+    if (trigger.activeOption) {
+      event.chipInput.clear();
+      return;
+    }
     const note = this.openNote();
     const name = event.value.trim();
     event.chipInput.clear();
@@ -526,7 +530,7 @@ export class Manager implements OnInit {
 
   addTagFromOption(event: MatAutocompleteSelectedEvent, inputEl: HTMLInputElement): void {
     const note = this.openNote();
-    const name = (event.option.viewValue ?? '').trim();
+    const name = event.option.viewValue.trim();
     inputEl.value = '';
     this.tagQuery.set('');
     if (!note || !name) return;
