@@ -19,8 +19,12 @@ import { TiptapEditorDirective } from 'ngx-tiptap';
 import type { ProseMirrorDoc } from '@stickynotes/shared';
 import { UploadsApi } from '../core/uploads.api';
 import { EMPTY_DOC, buildExtensions } from './extensions';
+import { docToMarkdown } from './markdown-export';
 import { OpenNote, OpenNotesStore } from './open-notes.store';
 import { isSafeLinkUrl } from './safe-url';
+import { extractToc, TocEntry } from './toc';
+
+const TOC_STORAGE_KEY = 'note-editor.toc';
 
 /**
  * Presentation-agnostic note editor. Knows nothing about panes, windows, or
@@ -42,7 +46,7 @@ import { isSafeLinkUrl } from './safe-url';
 export class NoteEditor implements OnInit, OnDestroy {
   readonly noteId = input.required<string>();
   readonly editable = input(true);
-  /** Filename stem for "Export HTML" (usually the note title). */
+  /** Filename stem for "Export" (usually the note title). */
   readonly exportName = input<string>('note');
 
   private readonly store = inject(OpenNotesStore);
@@ -70,6 +74,26 @@ export class NoteEditor implements OnInit, OnDestroy {
     return this.entry?.conflict() ?? false;
   });
 
+  // --- TOC ---
+  readonly tocVisible = signal(
+    typeof localStorage !== 'undefined'
+      ? localStorage.getItem(TOC_STORAGE_KEY) === 'true'
+      : false,
+  );
+  readonly tocEntries = signal<TocEntry[]>([]);
+
+  toggleToc(): void {
+    const next = !this.tocVisible();
+    this.tocVisible.set(next);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(TOC_STORAGE_KEY, String(next));
+    }
+  }
+
+  navigateToHeading(entry: TocEntry): void {
+    this.editor.chain().focus().setTextSelection(entry.pos + 1).scrollIntoView().run();
+  }
+
   ngOnInit(): void {
     this.entry = this.store.open(this.noteId());
 
@@ -84,7 +108,9 @@ export class NoteEditor implements OnInit, OnDestroy {
       },
       onUpdate: ({ editor }) => {
         if (this.suppressUpdate) return;
-        this.store.setContent(this.noteId(), editor.getJSON() as ProseMirrorDoc);
+        const doc = editor.getJSON() as ProseMirrorDoc;
+        this.store.setContent(this.noteId(), doc);
+        this.tocEntries.set(extractToc(doc));
       },
       onTransaction: () => this.tick.update((v) => v + 1),
     });
@@ -105,6 +131,8 @@ export class NoteEditor implements OnInit, OnDestroy {
           this.suppressUpdate = true;
           this.editor.commands.setContent(content as JSONContent);
           this.suppressUpdate = false;
+          // Refresh TOC after a server-driven content replacement.
+          this.tocEntries.set(extractToc(content));
         }
       },
       { injector: this.injector },
@@ -227,10 +255,36 @@ export class NoteEditor implements OnInit, OnDestroy {
       .run();
   }
 
-  /** Downloads the note as a standalone HTML file (client-side only). */
+  /** Downloads the note as a Markdown file (primary export action). */
+  exportMarkdown(): void {
+    const title = this.exportName() || 'note';
+    const doc = this.editor.getJSON() as ProseMirrorDoc;
+    const md = docToMarkdown(doc);
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${sanitizeFilename(title)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Downloads the note as a standalone HTML file (client-side only).
+   *
+   * Improvements over the original:
+   *   (a) Math nodes export as LaTeX source ($…$ / $$…$$) instead of KaTeX
+   *       markup — the rendered KaTeX HTML contains unstyled SVG that looks
+   *       broken outside the app. We post-process the doc JSON via the same
+   *       docToMarkdown helpers, then substitute the <span>/<div> math wrappers
+   *       in the exported HTML with the raw LaTeX delimiters.
+   *   (b) highlight.js token colours are inlined so code blocks stay readable
+   *       without a CDN stylesheet.
+   */
   exportHtml(): void {
     const title = this.exportName() || 'note';
-    const body = this.editor.getHTML();
+    const rawHtml = this.editor.getHTML();
+    const body = postProcessHtmlForExport(rawHtml);
     const html = `<!doctype html>
 <html>
 <head>
@@ -244,6 +298,18 @@ export class NoteEditor implements OnInit, OnDestroy {
   pre { background: #f4f4f5; border: 1px solid #e0e0e0; border-radius: 6px; padding: 0.75em 1em; overflow-x: auto; }
   pre code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
   blockquote { border-left: 4px solid #1e88e5; margin: 0.6em 0; padding: 0.1em 0 0.1em 1em; color: #555; }
+  /* highlight.js token palette — inlined for self-contained export */
+  .hljs-comment,.hljs-quote{color:#6a737d;font-style:italic}
+  .hljs-keyword,.hljs-selector-tag,.hljs-built_in,.hljs-name,.hljs-tag{color:#d73a49}
+  .hljs-string,.hljs-title,.hljs-section,.hljs-attribute,.hljs-literal,
+  .hljs-template-tag,.hljs-template-variable,.hljs-type,.hljs-addition{color:#22863a}
+  .hljs-number,.hljs-symbol,.hljs-bullet,.hljs-link,.hljs-meta,
+  .hljs-selector-id,.hljs-selector-class{color:#005cc5}
+  .hljs-attr,.hljs-variable,.hljs-params{color:#e36209}
+  .hljs-function .hljs-title,.hljs-title.function_{color:#6f42c1}
+  .hljs-deletion{color:#b31d28}
+  .hljs-emphasis{font-style:italic}
+  .hljs-strong{font-weight:700}
 </style>
 </head>
 <body>
@@ -260,6 +326,57 @@ ${body}
     URL.revokeObjectURL(url);
   }
 }
+
+// ---------------------------------------------------------------------------
+// HTML export post-processing
+// ---------------------------------------------------------------------------
+
+/**
+ * Replaces KaTeX-rendered math wrappers in exported HTML with plain LaTeX
+ * delimiters so the exported file stays readable without KaTeX styles/scripts.
+ *
+ * TipTap's mathematics extension renders:
+ *   - inline math as <span data-type="inline-math" data-latex="...">…katex html…</span>
+ *   - block math  as <div  data-type="block-math"  data-latex="...">…katex html…</div>
+ *
+ * We replace the entire element with the raw delimiter string.
+ */
+function postProcessHtmlForExport(html: string): string {
+  // Block math first (greedy on multi-line would be wrong, use [^]* with care).
+  // Pattern: opening div tag with data-type="block-math" … matching closing </div>.
+  // We use a non-greedy match on the content and rely on the data-latex attr.
+  let result = html.replace(
+    /<div[^>]*data-type="block-math"[^>]*data-latex="([^"]*)"[^>]*>[\s\S]*?<\/div>/gi,
+    (_match, latex: string) => `<p>$$${unescapeAttr(latex)}$$</p>`,
+  );
+
+  // Also handle the case where data-latex comes after data-type in the attribute order
+  result = result.replace(
+    /<div[^>]*data-latex="([^"]*)"[^>]*data-type="block-math"[^>]*>[\s\S]*?<\/div>/gi,
+    (_match, latex: string) => `<p>$$${unescapeAttr(latex)}$$</p>`,
+  );
+
+  // Inline math
+  result = result.replace(
+    /<span[^>]*data-type="inline-math"[^>]*data-latex="([^"]*)"[^>]*>[\s\S]*?<\/span>/gi,
+    (_match, latex: string) => `$${unescapeAttr(latex)}$`,
+  );
+
+  result = result.replace(
+    /<span[^>]*data-latex="([^"]*)"[^>]*data-type="inline-math"[^>]*>[\s\S]*?<\/span>/gi,
+    (_match, latex: string) => `$${unescapeAttr(latex)}$`,
+  );
+
+  return result;
+}
+
+function unescapeAttr(s: string): string {
+  return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+}
+
+// ---------------------------------------------------------------------------
+// Shared utilities
+// ---------------------------------------------------------------------------
 
 function escapeHtml(s: string): string {
   return s

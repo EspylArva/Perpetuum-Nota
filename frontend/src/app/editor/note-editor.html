@@ -70,12 +70,47 @@
       <button matIconButton matTooltip="Link" [class.active]="isActive('link')" (click)="setLink()">
         <mat-icon>link</mat-icon>
       </button>
-      <button matIconButton matTooltip="Export as HTML" (click)="exportHtml()">
-        <mat-icon>download</mat-icon>
+      <!-- Export split button: primary action = Markdown; arrow opens format menu -->
+      <div class="export-split">
+        <button matIconButton matTooltip="Export as Markdown" (click)="exportMarkdown()">
+          <mat-icon>download</mat-icon>
+        </button>
+        <button matIconButton matTooltip="Export options" [matMenuTriggerFor]="exportMenu" class="export-arrow">
+          <mat-icon>arrow_drop_down</mat-icon>
+        </button>
+      </div>
+      <mat-menu #exportMenu="matMenu">
+        <button mat-menu-item (click)="exportMarkdown()">
+          <mat-icon>download</mat-icon>
+          <span>Markdown (.md)</span>
+        </button>
+        <button mat-menu-item (click)="exportHtml()">
+          <mat-icon>code</mat-icon>
+          <span>HTML (.html)</span>
+        </button>
+      </mat-menu>
+      <!-- TOC toggle -->
+      <button matIconButton matTooltip="Table of contents" [class.active]="tocVisible()" (click)="toggleToc()">
+        <mat-icon>toc</mat-icon>
       </button>
       <span class="spacer"></span>
       <span class="status">{{ status() }}</span>
     </div>
   }
-  <div class="surface" tiptap [editor]="editor"></div>
+  <div class="editor-body">
+    @if (tocVisible() && tocEntries().length > 0) {
+      <nav class="toc-panel" aria-label="Table of contents">
+        <div class="toc-heading">Contents</div>
+        @for (entry of tocEntries(); track entry.pos) {
+          <button
+            type="button"
+            class="toc-entry"
+            [style.padding-left.rem]="0.5 + (entry.level - 1) * 0.75"
+            (click)="navigateToHeading(entry)"
+          >{{ entry.text }}</button>
+        }
+      </nav>
+    }
+    <div class="surface" tiptap [editor]="editor"></div>
+  </div>
 </div>
