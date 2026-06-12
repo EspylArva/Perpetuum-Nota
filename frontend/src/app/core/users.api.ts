@@ -36,4 +36,9 @@ export class UsersApi {
   remove(id: string): Observable<{ id: string }> {
     return this.http.delete<{ id: string }>(`/api/users/${id}`);
   }
+
+  /** Admin: set a new (temp) password for a user. */
+  resetPassword(id: string, password: string): Observable<void> {
+    return this.http.post<void>(`/api/users/${id}/password`, { password });
+  }
 }

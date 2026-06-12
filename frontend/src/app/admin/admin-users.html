@@ -21,6 +21,9 @@
         <mat-label>Temp password (6+ chars)</mat-label>
         <input matInput type="text" [(ngModel)]="password" />
       </mat-form-field>
+      <button matButton type="button" (click)="generateCreatePassword()" matTooltip="Fill with a random password">
+        Generate
+      </button>
       <mat-form-field appearance="outline" subscriptSizing="dynamic" class="role">
         <mat-label>Role</mat-label>
         <mat-select [(ngModel)]="role">
@@ -58,6 +61,9 @@
               <mat-slide-toggle [checked]="u.isActive" (change)="setActive(u, $event.checked)" />
             </td>
             <td class="actions">
+              <button matIconButton matTooltip="Reset password" (click)="openResetPassword(u)">
+                <mat-icon>lock_reset</mat-icon>
+              </button>
               <button matIconButton class="delete" matTooltip="Delete user and ALL their notes"
                       (click)="deleteUser(u)">
                 <mat-icon>delete_forever</mat-icon>
@@ -69,3 +75,7 @@
     </table>
   </section>
 </div>
+
+@if (resettingUser(); as u) {
+  <app-reset-password-dialog [target]="u" (close)="closeResetPassword()" />
+}

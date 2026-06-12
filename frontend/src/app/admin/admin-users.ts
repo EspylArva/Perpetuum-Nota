@@ -14,6 +14,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import type { Role, UserAdminDto } from '@stickynotes/shared';
 import { UsersApi } from '../core/users.api';
 import { openConfirm } from '../shared-ui/confirm-dialog';
+import { generateTempPassword } from './password-gen';
+import { ResetPasswordDialog } from './reset-password-dialog';
 
 @Component({
   selector: 'app-admin-users',
@@ -28,6 +30,7 @@ import { openConfirm } from '../shared-ui/confirm-dialog';
     MatSelectModule,
     MatSlideToggleModule,
     MatTooltipModule,
+    ResetPasswordDialog,
   ],
   templateUrl: './admin-users.html',
   styleUrl: './admin-users.scss',
@@ -40,6 +43,7 @@ export class AdminUsers implements OnInit {
   readonly users = signal<UserAdminDto[]>([]);
   readonly error = signal<string | null>(null);
   readonly creating = signal(false);
+  readonly resettingUser = signal<UserAdminDto | null>(null);
 
   // create form
   email = '';
@@ -53,6 +57,10 @@ export class AdminUsers implements OnInit {
 
   refresh(): void {
     this.api.listAll().subscribe((u) => this.users.set(u));
+  }
+
+  generateCreatePassword(): void {
+    this.password = generateTempPassword();
   }
 
   create(): void {
@@ -105,6 +113,14 @@ export class AdminUsers implements OnInit {
         ),
       error: (e) => this.onUpdateError(e),
     });
+  }
+
+  openResetPassword(u: UserAdminDto): void {
+    this.resettingUser.set(u);
+  }
+
+  closeResetPassword(): void {
+    this.resettingUser.set(null);
   }
 
   deleteUser(u: UserAdminDto): void {

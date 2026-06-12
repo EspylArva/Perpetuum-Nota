@@ -96,6 +96,16 @@ export class UsersService {
     return this.toDto(user);
   }
 
+  async resetPassword(id: string, password: string) {
+    const exists = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!exists) throw new NotFoundException('User not found');
+    const passwordHash = await argon2.hash(password);
+    await this.prisma.user.update({ where: { id }, data: { passwordHash } });
+  }
+
   /**
    * Permanently deletes a user and (via cascade) their notes, shares, tags,
    * and image rows; image FILES are unlinked explicitly. Deleting yourself is

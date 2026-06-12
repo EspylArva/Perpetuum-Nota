@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -13,6 +14,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import type { AuthenticatedUser } from '../auth/types';
 import { CreateUserDto } from './dto/create-user.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
@@ -46,6 +48,14 @@ export class UsersController {
   @Roles('ADMIN')
   update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.users.update(id, dto);
+  }
+
+  @Post(':id/password')
+  @HttpCode(200)
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  resetPassword(@Param('id') id: string, @Body() dto: ResetPasswordDto) {
+    return this.users.resetPassword(id, dto.password);
   }
 
   // Permanent removal of a user and all their data (notes, images, shares).
