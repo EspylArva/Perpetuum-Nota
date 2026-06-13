@@ -93,6 +93,7 @@
       <div class="tags-head">Calendar</div>
       <div class="cal-wrap" (mousedown)="onCalendarMouseDown($event)">
         <mat-calendar
+          aria-label="Filter notes by due date"
           [selected]="dueSelected"
           [dateClass]="dueDateClass"
           (selectedChange)="onCalendarSelect($event)" />
@@ -269,7 +270,7 @@
 
                 <div class="due-control">
                   <mat-icon class="due-ico">event</mat-icon>
-                  <input class="due-input" placeholder="Due date" readonly
+                  <input class="due-input" placeholder="Due date" aria-label="Due date" readonly
                          [matDatepicker]="duePicker"
                          [value]="dueAsDate(openNote()?.dueDate)"
                          (dateChange)="setDue(id, $event.value)"
@@ -396,7 +397,7 @@
 
                 <div class="due-control">
                   <mat-icon class="due-ico">event</mat-icon>
-                  <input class="due-input" placeholder="Due date" readonly
+                  <input class="due-input" placeholder="Due date" aria-label="Due date" readonly
                          [matDatepicker]="duePickerModal"
                          [value]="dueAsDate(openNote()?.dueDate)"
                          (dateChange)="setDue(openId()!, $event.value)"
