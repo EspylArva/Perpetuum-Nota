@@ -1222,8 +1222,23 @@ export class Manager implements OnInit {
     this.notes.update((list) => list.filter((n) => !gone.has(n.id)));
     if (this.openId() && gone.has(this.openId()!)) this.openId.set(null);
     // Close any floating wall windows for deleted notes.
+    // Deliberately skip flush (unlike closeWindow) — the note is being permanently
+    // deleted/trashed so we must not re-save any pending editor content.
     if (this.wallOpenIds().some((id) => gone.has(id))) {
+      this.wallOpenIds().filter((id) => gone.has(id)).forEach((id) => this.clearWinZ(id));
       this.wallOpenIds.update((list) => list.filter((id) => !gone.has(id)));
+    }
+    if (this.wallFolderIds().some((id) => gone.has(id))) {
+      this.wallFolderIds().filter((id) => gone.has(id)).forEach((id) => {
+        this.clearWinZ(id);
+        this.folderNotes.update((m) => {
+          if (!m.has(id)) return m;
+          const out = new Map(m);
+          out.delete(id);
+          return out;
+        });
+      });
+      this.wallFolderIds.update((list) => list.filter((id) => !gone.has(id)));
     }
     this.selected.update((set) => {
       const next = new Set(set);

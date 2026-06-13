@@ -385,10 +385,15 @@
           @for (f of rootFolders(); track f.id) {
             <article
               class="folder-card"
+              role="button"
+              tabindex="0"
+              [attr.aria-label]="'Open folder ' + f.name + ' (' + f.noteCount + ' notes)'"
               [style.left.px]="(folderLayout().get(f.id)?.x ?? 0) * CELL"
               [style.top.px]="(folderLayout().get(f.id)?.y ?? 0) * CELL"
               (pointerdown)="$event.stopPropagation()"
               (dblclick)="openFolderWindow(f.id)"
+              (keydown.enter)="openFolderWindow(f.id)"
+              (keydown.space)="openFolderWindow(f.id); $event.preventDefault()"
               [matTooltip]="'Double-click to open ' + f.name"
               matTooltipShowDelay="400"
             >
@@ -557,8 +562,8 @@
           <div class="folder-window-grid">
             @for (sf of subfolders(fid); track sf.id) {
               <button type="button" class="mini folder-mini"
-                      (dblclick)="openFolderWindow(sf.id)"
-                      [matTooltip]="'Double-click to open ' + sf.name">
+                      (click)="openFolderWindow(sf.id)"
+                      [matTooltip]="sf.name">
                 <mat-icon class="folder-ico">folder</mat-icon>
                 <span class="mini-title">{{ sf.name }}</span>
                 <span class="folder-count">{{ sf.noteCount }}</span>
