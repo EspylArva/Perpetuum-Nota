@@ -187,11 +187,15 @@ export class Manager implements OnInit {
   readonly timeAgo = timeAgo;
   readonly openId = signal<string | null>(null);
   /**
-   * Outgoing wikilinks of the currently open note, fetched from the full
-   * NoteDto (the summary list carries tags but NOT links). Populated by open()
-   * via one NotesApi.get; cleared while a different note loads.
+   * Outgoing wikilinks of the currently open note, surfaced as pills. Links live
+   * on the full NoteDto (the summary list carries tags but NOT links), so they
+   * are read from the OpenNotesStore entry the editor already fetches — no extra
+   * request from the manager.
    */
-  readonly openNoteLinks = signal<{ id: string; title: string }[]>([]);
+  readonly openNoteLinks = computed(() => {
+    const id = this.openId();
+    return id ? this.openStore.linksOf(id)() : [];
+  });
   readonly shareId = signal<string | null>(null);
   readonly selected = signal<ReadonlySet<string>>(new Set());
   readonly showPasswordDialog = signal(false);
@@ -668,25 +672,19 @@ export class Manager implements OnInit {
   }
 
   /**
-   * Opens a note in the right-hand pane. Links live on the full NoteDto (not the
-   * summary list), so we fetch the note once here to populate the linked-note
-   * pills; that fetch also primes OpenNotesStore (no second content GET) and
-   * marks any unseen share grant seen server-side. The deep-link path already
-   * has the NoteDto in hand and passes it as `prefetched` to avoid re-fetching.
+   * Opens a note in the right-hand pane. The single content fetch is owned by
+   * OpenNotesStore (the editor mounts and calls store.open too — the store's
+   * in-flight guard dedupes them into one GET). The linked-note pills then read
+   * straight off that store entry via `openNoteLinks`. The deep-link path
+   * already has the NoteDto and primes the store with it to skip the fetch.
    */
   open(id: string, prefetched?: NoteDto): void {
-    this.openId.set(id);
-    this.openNoteLinks.set([]);
     if (prefetched) {
-      this.openNoteLinks.set(prefetched.links ?? []);
+      this.openStore.prime(prefetched);
     } else {
-      this.api.get(id).subscribe({
-        next: (note) => {
-          this.openStore.prime(note);
-          if (this.openId() === id) this.openNoteLinks.set(note.links ?? []);
-        },
-      });
+      this.openStore.open(id);
     }
+    this.openId.set(id);
     const note = this.notes().find((n) => n.id === id);
     if (note && !note.seen) {
       // Reflect the now-consumed share badge locally.

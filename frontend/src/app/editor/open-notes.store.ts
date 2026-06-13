@@ -1,6 +1,12 @@
-import { Injectable, WritableSignal, inject, signal } from '@angular/core';
+import { Injectable, Signal, WritableSignal, inject, signal } from '@angular/core';
 import type { NoteDto, ProseMirrorDoc } from '@stickynotes/shared';
 import { NotesApi } from '../core/notes.api';
+
+/** A resolved outgoing wikilink: the target note's id + current title. */
+export interface NoteLinkRef {
+  id: string;
+  title: string;
+}
 
 export interface OpenNote {
   readonly id: string;
@@ -18,6 +24,12 @@ export interface OpenNote {
    * changes, never on local edits echoing back through the signal.
    */
   readonly serverVersion: WritableSignal<number>;
+  /**
+   * Outgoing `[[wikilinks]]` resolved server-side, surfaced as pills. Refreshed
+   * on load and on conflict-reload; NOT after a plain autosave (updateContent
+   * returns only the new timestamp), so a freshly-typed link appears on reopen.
+   */
+  readonly links: WritableSignal<NoteLinkRef[]>;
   contentUpdatedAt: string | null;
 }
 
@@ -35,6 +47,8 @@ export class OpenNotesStore {
   private readonly api = inject(NotesApi);
   private readonly notes = new Map<string, OpenNote>();
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
+  /** Ids with an in-flight initial GET, so concurrent open() calls share one. */
+  private readonly loading = new Set<string>();
   private readonly DEBOUNCE_MS = 900;
 
   constructor() {
@@ -57,6 +71,7 @@ export class OpenNotesStore {
   clear(): void {
     for (const timer of this.timers.values()) clearTimeout(timer);
     this.timers.clear();
+    this.loading.clear();
     this.notes.clear();
   }
 
@@ -73,11 +88,17 @@ export class OpenNotesStore {
         conflict: signal(false),
         saveError: signal(false),
         serverVersion: signal(0),
+        links: signal<NoteLinkRef[]>([]),
         contentUpdatedAt: null,
       };
       this.notes.set(noteId, n);
     }
     return n;
+  }
+
+  /** Reactive outgoing wikilinks for a note (empty until loaded). */
+  linksOf(noteId: string): Signal<NoteLinkRef[]> {
+    return this.entry(noteId).links;
   }
 
   /**
@@ -91,21 +112,30 @@ export class OpenNotesStore {
     if (n.loaded()) return;
     n.content.set(note.content);
     n.contentUpdatedAt = note.contentUpdatedAt;
+    n.links.set(note.links ?? []);
     n.loaded.set(true);
     n.serverVersion.update((v) => v + 1);
   }
 
-  /** Ensures the note's content is fetched from the server (once). */
+  /**
+   * Ensures the note's content is fetched from the server once. The `loading`
+   * guard means concurrent callers (the manager opening the pane AND the editor
+   * mounting) share a single GET rather than racing two.
+   */
   open(noteId: string): OpenNote {
     const n = this.entry(noteId);
-    if (!n.loaded()) {
+    if (!n.loaded() && !this.loading.has(noteId)) {
+      this.loading.add(noteId);
       this.api.get(noteId).subscribe({
         next: (note) => {
           n.content.set(note.content);
           n.contentUpdatedAt = note.contentUpdatedAt;
+          n.links.set(note.links ?? []);
           n.loaded.set(true);
           n.serverVersion.update((v) => v + 1);
         },
+        complete: () => this.loading.delete(noteId),
+        error: () => this.loading.delete(noteId),
       });
     }
     return n;
@@ -147,6 +177,7 @@ export class OpenNotesStore {
       next: (note) => {
         n.content.set(note.content);
         n.contentUpdatedAt = note.contentUpdatedAt;
+        n.links.set(note.links ?? []);
         n.dirty.set(false);
         n.conflict.set(false);
         n.saveError.set(false);
