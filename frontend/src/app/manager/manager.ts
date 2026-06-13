@@ -1,5 +1,6 @@
 import {
   Component,
+  DestroyRef,
   ElementRef,
   OnInit,
   computed,
@@ -8,7 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import {
   CdkDrag,
@@ -124,6 +125,7 @@ export class Manager implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly dialog = inject(MatDialog);
   private readonly snack = inject(MatSnackBar);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly breakpoints = inject(BreakpointObserver);
 
   readonly theme = inject(ThemeStore);
@@ -333,11 +335,13 @@ export class Manager implements OnInit {
     // in-app navigation (e.g. a future router push) works too. The id is
     // validated with a direct GET so an unknown/inaccessible note shows a
     // snackbar and redirects to the list instead of opening a broken editor.
-    this.route.paramMap.subscribe((params) => {
-      const id = params.get('id');
-      if (!id) return;
-      this.openDeepLink(id);
-    });
+    this.route.paramMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        const id = params.get('id');
+        if (!id) return;
+        this.openDeepLink(id);
+      });
   }
 
   /** Validates a deep-linked id, then opens it; bad id → snackbar + redirect. */
