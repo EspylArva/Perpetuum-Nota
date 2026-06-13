@@ -64,6 +64,16 @@ export interface NoteSummaryDto {
 
 export interface NoteDto extends NoteSummaryDto {
   content: ProseMirrorDoc;
+  // Outgoing wikilinks ([[title]] in the body), resolved to live target notes.
+  // Stored by id, so each carries the target's CURRENT title (renames follow).
+  links: { id: string; title: string }[];
+}
+
+// Wikilink graph for the graph view. Nodes are the requester's viewable notes;
+// an undirected edge joins two notes that link each other in either direction.
+export interface NoteGraphDto {
+  nodes: { id: string; title: string }[];
+  edges: { a: string; b: string }[];
 }
 
 export interface CreateNoteDto {

@@ -88,6 +88,10 @@ model Note {
   shares NoteShare[]
   images ImageAsset[]
   tags   NoteTag[]
+  // Wikilink graph edges: notes this note points at ([[...]] in its text) and
+  // notes that point at it. Resolution is by id, so target renames keep working.
+  outgoingLinks NoteLink[] @relation("OutgoingLinks")
+  incomingLinks NoteLink[] @relation("IncomingLinks")
 
   @@index([ownerId])
   @@index([ownerId, position])
@@ -154,6 +158,23 @@ model NoteTag {
 
   @@id([noteId, tagId])
   @@index([tagId])
+}
+
+// Note-to-note links, written via `[[title of another note]]` in a note's text.
+// Edges are stored by id (fromNoteId → toNoteId), resolved against the source
+// note's OWNER namespace at content-save time. Because links are stored by id,
+// renaming the target note does NOT rewrite the source text — the stored edge
+// keeps working and the UI shows the target's CURRENT title. Recomputed in the
+// same transaction as every content write (see NotesService.updateContent).
+model NoteLink {
+  fromNoteId String
+  from       Note     @relation("OutgoingLinks", fields: [fromNoteId], references: [id], onDelete: Cascade)
+  toNoteId   String
+  to         Note     @relation("IncomingLinks", fields: [toNoteId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([fromNoteId, toNoteId])
+  @@index([toNoteId])
 }
 
 // Uploaded image files. The ProseMirror image node references these by id (/api/uploads/:id),

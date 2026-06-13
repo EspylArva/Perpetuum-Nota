@@ -86,6 +86,13 @@ export class NotesController {
     return this.notes.unseenSharedCount(user.id);
   }
 
+  // Wikilink graph (nodes + undirected edges) over the user's viewable notes.
+  // Declared before ':id' so "graph" isn't captured as a note id.
+  @Get('graph')
+  graph(@CurrentUser() user: AuthenticatedUser) {
+    return this.notes.graph(user.id);
+  }
+
   @Post('batch-delete')
   @HttpCode(200)
   batchDelete(

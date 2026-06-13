@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   EMPTY_DOC,
   extractSearchText,
+  extractWikilinks,
   isProseMirrorDoc,
   previewFromText,
   rewriteUploadSrcs,
@@ -165,6 +166,71 @@ export class NotesService {
   }
 
   /**
+   * Live notes the user may view (owner OR public OR shared-with-them; never
+   * trashed). The same scope the list uses for filter='all', factored out so the
+   * graph endpoint reuses identical viewability rules.
+   */
+  private viewableScope(userId: string): Prisma.NoteWhereInput {
+    return {
+      AND: [
+        {
+          OR: [
+            { ownerId: userId },
+            {
+              ownerId: { not: userId },
+              OR: [{ visibility: 'PUBLIC' }, { shares: { some: { userId } } }],
+            },
+          ],
+        },
+        { deletedAt: null },
+      ],
+    };
+  }
+
+  /**
+   * Wikilink graph for the requesting user: nodes are the notes they can view,
+   * and an undirected edge joins two nodes when a NoteLink exists in EITHER
+   * direction AND BOTH endpoints are viewable (a link to a note the requester
+   * can't see yields no edge). Undirected pairs are deduped to a single edge
+   * (canonical a<b ordering).
+   */
+  async graph(userId: string): Promise<{
+    nodes: { id: string; title: string }[];
+    edges: { a: string; b: string }[];
+  }> {
+    const nodes = await this.prisma.note.findMany({
+      where: this.viewableScope(userId),
+      select: { id: true, title: true },
+      orderBy: { title: 'asc' },
+    });
+    const ids = new Set(nodes.map((n) => n.id));
+
+    // Pull every edge touching a viewable note in either direction; keep only
+    // those whose BOTH endpoints are viewable, then collapse to undirected pairs.
+    const links = await this.prisma.noteLink.findMany({
+      where: {
+        OR: [{ fromNoteId: { in: [...ids] } }, { toNoteId: { in: [...ids] } }],
+      },
+      select: { fromNoteId: true, toNoteId: true },
+    });
+
+    const seen = new Set<string>();
+    const edges: { a: string; b: string }[] = [];
+    for (const { fromNoteId, toNoteId } of links) {
+      if (fromNoteId === toNoteId) continue; // (self-links never persisted, guard anyway)
+      if (!ids.has(fromNoteId) || !ids.has(toNoteId)) continue;
+      const [a, b] =
+        fromNoteId < toNoteId ? [fromNoteId, toNoteId] : [toNoteId, fromNoteId];
+      const key = `${a}|${b}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push({ a, b });
+    }
+
+    return { nodes, edges };
+  }
+
+  /**
    * Id-prefilter for search. Access control is applied by the Prisma query the
    * ids feed into, so this can stay a simple content match.
    */
@@ -241,7 +307,8 @@ export class NotesService {
         data: { seenAt: new Date() },
       });
     }
-    return { ...this.toSummary(note, userId), content: note.content };
+    const links = await this.resolveLinks(noteId);
+    return { ...this.toSummary(note, userId), content: note.content, links };
   }
 
   /** Count of share grants to me I haven't opened yet (sidebar badge). */
@@ -317,31 +384,41 @@ export class NotesService {
       lastEditedById: userId,
     };
 
+    let base: Date | undefined;
     if (dto.baseContentUpdatedAt) {
-      const base = new Date(dto.baseContentUpdatedAt);
+      base = new Date(dto.baseContentUpdatedAt);
       if (Number.isNaN(base.getTime())) {
         throw new BadRequestException(
           'baseContentUpdatedAt must be an ISO timestamp',
         );
       }
-      // Atomic optimistic concurrency: the row is only written if it still
-      // carries the timestamp the client based its edit on.
-      const res = await this.prisma.note.updateMany({
-        where: { id: noteId, contentUpdatedAt: base },
-        data,
-      });
-      if (res.count === 0) {
-        throw new ConflictException('Note was modified elsewhere');
-      }
-      return { contentUpdatedAt: now };
     }
 
-    const note = await this.prisma.note.update({
-      where: { id: noteId },
-      data,
-      select: { contentUpdatedAt: true },
+    // Content write + wikilink recompute share one transaction so the stored
+    // links always match the persisted body. On the optimistic-concurrency path
+    // (base set) we only recompute links AFTER confirming the write landed
+    // (updateMany matched a row); a 0-row match is a 409 and leaves links alone.
+    return this.prisma.$transaction(async (tx) => {
+      if (base) {
+        const res = await tx.note.updateMany({
+          where: { id: noteId, contentUpdatedAt: base },
+          data,
+        });
+        if (res.count === 0) {
+          throw new ConflictException('Note was modified elsewhere');
+        }
+        await this.recomputeLinks(tx, noteId, dto.content);
+        return { contentUpdatedAt: now };
+      }
+
+      const note = await tx.note.update({
+        where: { id: noteId },
+        data,
+        select: { contentUpdatedAt: true },
+      });
+      await this.recomputeLinks(tx, noteId, dto.content);
+      return { contentUpdatedAt: note.contentUpdatedAt };
     });
-    return { contentUpdatedAt: note.contentUpdatedAt };
   }
 
   /** Soft delete — moves the note to trash (idempotent). */
@@ -442,13 +519,19 @@ export class NotesService {
 
     // Copy image files + asset rows, then point the cloned doc at the copies.
     const idMap = await this.uploads.copyAssets(noteId, created.id, userId);
+    let finalContent: unknown = src.content;
     if (idMap.size > 0) {
-      const rewritten = rewriteUploadSrcs(src.content, idMap);
+      finalContent = rewriteUploadSrcs(src.content, idMap);
       await this.prisma.note.update({
         where: { id: created.id },
-        data: { content: rewritten as Prisma.InputJsonValue },
+        data: { content: finalContent as Prisma.InputJsonValue },
       });
     }
+
+    // Resolve the clone's wikilinks against the NEW owner's namespace.
+    await this.prisma.$transaction((tx) =>
+      this.recomputeLinks(tx, created.id, finalContent),
+    );
 
     const full = await this.prisma.note.findUniqueOrThrow({
       where: { id: created.id },
@@ -525,6 +608,81 @@ export class NotesService {
     await this.prisma.note.deleteMany({ where: { id: { in: ids } } });
     await this.uploads.deleteFiles(assets);
     return ids.length;
+  }
+
+  /**
+   * Recomputes a note's OUTGOING wikilinks from its content and rewrites the
+   * NoteLink rows for that note, inside the caller's transaction. Resolution
+   * rules: titles are matched case-insensitively against the note OWNER's live
+   * (non-trashed) notes; on >1 match the most recently `updatedAt` wins; titles
+   * that resolve to nothing produce no row; a note linking its own title is
+   * skipped. Links are stored BY ID, so renaming a target later does not rewrite
+   * this source's text — the stored edge keeps working and the UI shows the
+   * target's current title. Called on every content-persisting write.
+   */
+  private async recomputeLinks(
+    tx: Prisma.TransactionClient,
+    noteId: string,
+    content: unknown,
+  ): Promise<void> {
+    const self = await tx.note.findUnique({
+      where: { id: noteId },
+      select: { ownerId: true },
+    });
+    if (!self) return;
+
+    const titles = extractWikilinks(content);
+
+    // Resolve titles → target ids within the owner's namespace. One query for
+    // all candidate matches, then pick per title (most-recent on ambiguity).
+    const targetIds: string[] = [];
+    if (titles.length > 0) {
+      const candidates = await tx.note.findMany({
+        where: {
+          ownerId: self.ownerId,
+          deletedAt: null,
+          // Case-insensitive exact title match for any of the requested titles.
+          OR: titles.map((t) => ({
+            title: { equals: t, mode: 'insensitive' as const },
+          })),
+        },
+        select: { id: true, title: true, updatedAt: true },
+        orderBy: { updatedAt: 'desc' }, // first match per title = most recent
+      });
+
+      for (const title of titles) {
+        const lower = title.toLowerCase();
+        const match = candidates.find((c) => c.title.toLowerCase() === lower);
+        if (!match) continue; // unresolved → no row
+        if (match.id === noteId) continue; // skip self-links
+        if (!targetIds.includes(match.id)) targetIds.push(match.id);
+      }
+    }
+
+    // Replace the note's outgoing edge set wholesale.
+    await tx.noteLink.deleteMany({ where: { fromNoteId: noteId } });
+    if (targetIds.length > 0) {
+      await tx.noteLink.createMany({
+        data: targetIds.map((toNoteId) => ({ fromNoteId: noteId, toNoteId })),
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  /**
+   * Resolves a note's outgoing links for the single-note DTO: each target's id
+   * and CURRENT title, excluding trashed targets. Edges are stored by id so a
+   * renamed target surfaces here under its new title automatically.
+   */
+  private async resolveLinks(
+    noteId: string,
+  ): Promise<{ id: string; title: string }[]> {
+    const links = await this.prisma.noteLink.findMany({
+      where: { fromNoteId: noteId, to: { deletedAt: null } },
+      select: { to: { select: { id: true, title: true } } },
+      orderBy: { to: { title: 'asc' } },
+    });
+    return links.map((l) => ({ id: l.to.id, title: l.to.title }));
   }
 
   private metaInclude(userId: string) {

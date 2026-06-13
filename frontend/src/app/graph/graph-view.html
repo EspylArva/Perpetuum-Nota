@@ -1,0 +1,67 @@
+<mat-toolbar class="graph-toolbar">
+  <a matIconButton routerLink="/" matTooltip="Back to notes" aria-label="Back to notes">
+    <mat-icon>arrow_back</mat-icon>
+  </a>
+  <span class="title"><mat-icon class="title-ico">hub</mat-icon> Graph</span>
+  <span class="spacer"></span>
+  <a matButton routerLink="/">Back to notes</a>
+</mat-toolbar>
+
+<div class="graph-body">
+  @if (loading()) {
+    <div class="graph-state">
+      <mat-spinner diameter="40" />
+    </div>
+  } @else if (error()) {
+    <div class="graph-state">
+      <p>Couldn't load the graph. <a routerLink="/">Back to notes</a></p>
+    </div>
+  } @else if (isEmpty()) {
+    <div class="graph-state">
+      <p>No notes to graph yet. Create notes and link them with
+        <code>[[Title]]</code>.</p>
+    </div>
+  } @else {
+    <svg
+      class="graph-svg"
+      [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
+      preserveAspectRatio="xMidYMid meet"
+      (mouseleave)="hovered.set(null)"
+    >
+      <!-- edges -->
+      <g class="edges">
+        @for (e of renderEdges(); track e.a.id + '|' + e.b.id) {
+          <line
+            class="edge"
+            [class.active]="e.active"
+            [class.dimmed]="hovered() && !e.active"
+            [attr.x1]="e.a.x" [attr.y1]="e.a.y"
+            [attr.x2]="e.b.x" [attr.y2]="e.b.y"
+          />
+        }
+      </g>
+      <!-- nodes -->
+      <g class="nodes">
+        @for (n of laidOutNodes(); track n.id) {
+          <a
+            [attr.href]="'/note/' + n.id"
+            class="node-link"
+            [class.dimmed]="dimmed(n.id)"
+            [class.highlighted]="highlighted(n.id)"
+            (click)="openNode(n.id, $event)"
+            (mouseenter)="hovered.set(n.id)"
+            (focus)="hovered.set(n.id)"
+            (blur)="hovered.set(null)"
+          >
+            <circle class="node" [attr.cx]="n.x" [attr.cy]="n.y" r="9" />
+            <text
+              class="node-label"
+              [attr.x]="n.x" [attr.y]="n.y + 24"
+              text-anchor="middle"
+            >{{ n.title || 'Untitled' }}</text>
+          </a>
+        }
+      </g>
+    </svg>
+  }
+</div>

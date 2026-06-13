@@ -186,6 +186,12 @@ export class Manager implements OnInit {
   readonly dueState = dueState;
   readonly timeAgo = timeAgo;
   readonly openId = signal<string | null>(null);
+  /**
+   * Outgoing wikilinks of the currently open note, fetched from the full
+   * NoteDto (the summary list carries tags but NOT links). Populated by open()
+   * via one NotesApi.get; cleared while a different note loads.
+   */
+  readonly openNoteLinks = signal<{ id: string; title: string }[]>([]);
   readonly shareId = signal<string | null>(null);
   readonly selected = signal<ReadonlySet<string>>(new Set());
   readonly showPasswordDialog = signal(false);
@@ -380,7 +386,7 @@ export class Manager implements OnInit {
         if (!this.notes().some((n) => n.id === id)) {
           this.notes.update((list) => [note, ...list]);
         }
-        this.open(id);
+        this.open(id, note);
       },
       error: () => {
         this.snack.open('Note not found or not accessible', 'Dismiss', {
@@ -661,11 +667,29 @@ export class Manager implements OnInit {
     });
   }
 
-  open(id: string): void {
+  /**
+   * Opens a note in the right-hand pane. Links live on the full NoteDto (not the
+   * summary list), so we fetch the note once here to populate the linked-note
+   * pills; that fetch also primes OpenNotesStore (no second content GET) and
+   * marks any unseen share grant seen server-side. The deep-link path already
+   * has the NoteDto in hand and passes it as `prefetched` to avoid re-fetching.
+   */
+  open(id: string, prefetched?: NoteDto): void {
     this.openId.set(id);
+    this.openNoteLinks.set([]);
+    if (prefetched) {
+      this.openNoteLinks.set(prefetched.links ?? []);
+    } else {
+      this.api.get(id).subscribe({
+        next: (note) => {
+          this.openStore.prime(note);
+          if (this.openId() === id) this.openNoteLinks.set(note.links ?? []);
+        },
+      });
+    }
     const note = this.notes().find((n) => n.id === id);
     if (note && !note.seen) {
-      // The editor's GET marks the grant seen server-side; reflect it locally.
+      // Reflect the now-consumed share badge locally.
       this.notes.update((list) =>
         list.map((n) => (n.id === id ? { ...n, seen: true } : n)),
       );
@@ -680,6 +704,17 @@ export class Manager implements OnInit {
    */
   rowOpen(id: string, event: MouseEvent): void {
     if (!shouldOpenInApp(event)) return; // let the browser handle the anchor
+    event.preventDefault();
+    this.open(id);
+  }
+
+  /**
+   * Click on a linked-note pill: open the target in the same pane (plain
+   * left-click) or let the browser open `/note/:id` in a new tab/window for
+   * Ctrl/Cmd/Shift/Alt/middle-click — same rule as note rows.
+   */
+  openLink(id: string, event: MouseEvent): void {
+    if (!shouldOpenInApp(event)) return; // browser handles the anchor
     event.preventDefault();
     this.open(id);
   }

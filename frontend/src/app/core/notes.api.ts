@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import type {
   NoteDto,
   NoteFilter,
+  NoteGraphDto,
   NoteSharesDto,
   NoteSort,
   NoteSummaryDto,
@@ -42,6 +43,11 @@ export class NotesApi {
 
   sharedBadge(): Observable<SharedBadgeDto> {
     return this.http.get<SharedBadgeDto>('/api/notes/shared-badge');
+  }
+
+  /** Wikilink graph (viewable nodes + undirected edges) for the graph view. */
+  graph(): Observable<NoteGraphDto> {
+    return this.http.get<NoteGraphDto>('/api/notes/graph');
   }
 
   create(title?: string): Observable<NoteSummaryDto> {

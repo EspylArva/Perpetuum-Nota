@@ -60,6 +60,11 @@
         <mat-icon matListItemIcon>delete</mat-icon>
         <span matListItemTitle>Trash</span>
       </a>
+      <a mat-list-item routerLink="/graph"
+         aria-label="Graph view" matTooltip="Graph view">
+        <mat-icon matListItemIcon>hub</mat-icon>
+        <span matListItemTitle>Graph</span>
+      </a>
     </mat-nav-list>
 
     @if (tags().length > 0) {
@@ -344,6 +349,17 @@
                 </div>
               </div>
             }
+            @if (openNoteLinks().length > 0) {
+              <div class="links-bar" aria-label="Linked notes">
+                @for (lk of openNoteLinks(); track lk.id) {
+                  <a class="chip link-chip" [routerLink]="['/note', lk.id]"
+                     (click)="openLink(lk.id, $event)"
+                     [matTooltip]="'Open ' + (lk.title || 'Untitled')">
+                    <mat-icon class="link-ico">link</mat-icon>{{ lk.title || 'Untitled' }}
+                  </a>
+                }
+              </div>
+            }
             <app-note-editor [noteId]="id" [editable]="canEditOpen()" [exportName]="openNote()?.title || 'note'" />
           } @empty {
             <p class="empty">Select a note, or create a new one.</p>
@@ -475,6 +491,17 @@
                     </button>
                   }
                 </div>
+              </div>
+            }
+            @if (openNoteLinks().length > 0) {
+              <div class="links-bar" aria-label="Linked notes">
+                @for (lk of openNoteLinks(); track lk.id) {
+                  <a class="chip link-chip" [routerLink]="['/note', lk.id]"
+                     (click)="openLink(lk.id, $event)"
+                     [matTooltip]="'Open ' + (lk.title || 'Untitled')">
+                    <mat-icon class="link-ico">link</mat-icon>{{ lk.title || 'Untitled' }}
+                  </a>
+                }
               </div>
             }
             @for (id of openIds(); track id) {

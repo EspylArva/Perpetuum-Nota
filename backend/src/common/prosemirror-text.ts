@@ -107,6 +107,42 @@ export function rewriteUploadSrcs(
   return clone;
 }
 
+// Matches `[[inner]]` within a SINGLE text run. `[^\[\]]*` forbids brackets in
+// the inner part, so `[[a]]` and `[[a [b] c]]`-style nesting resolves to the
+// shortest bracket-free span (the regex won't cross an inner `[`/`]`). Links
+// split across separate text nodes (e.g. `[[` in one run and `Title]]` in the
+// next) are intentionally NOT matched — extraction is per-text-run.
+const WIKILINK = /\[\[([^[\]]*)\]\]/g;
+
+/**
+ * Walks the doc's text runs and returns the inner titles of `[[...]]` wikilink
+ * patterns. Titles are trimmed; empty `[[]]` (or whitespace-only) are ignored;
+ * results are de-duplicated case-insensitively, preserving the FIRST-seen
+ * original casing. Resolution to a note id (done elsewhere) is case-insensitive.
+ *
+ * Per-text-run: a `[[...]]` that straddles two adjacent text nodes (different
+ * marks, a hard break, etc.) is not detected — only patterns wholly inside a
+ * single text run match. Pure (no I/O), mirroring the other walkers here.
+ */
+export function extractWikilinks(doc: unknown): string[] {
+  const seen = new Map<string, string>(); // lowercased → first-seen original
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== 'object') return;
+    const n = node as MaybeNode;
+    if (typeof n.text === 'string') {
+      for (const m of n.text.matchAll(WIKILINK)) {
+        const title = m[1].trim();
+        if (!title) continue;
+        const key = title.toLowerCase();
+        if (!seen.has(key)) seen.set(key, title);
+      }
+    }
+    if (Array.isArray(n.content)) n.content.forEach(walk);
+  };
+  walk(doc);
+  return [...seen.values()];
+}
+
 /** True if the value looks like a ProseMirror document node. */
 export function isProseMirrorDoc(value: unknown): boolean {
   return (

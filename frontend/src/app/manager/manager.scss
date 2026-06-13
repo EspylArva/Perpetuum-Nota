@@ -298,12 +298,27 @@
   padding: 0.08rem 0.5rem;
   white-space: nowrap;
 }
+
+/* Linked-note pills (wikilinks): tag-chip shape, distinct tertiary accent so
+   note-to-note links read differently from tags. Theme-aware (light + dark).
+   Shares the tag-editor bar layout. */
+.link-chip {
+  gap: 0.15rem; text-decoration: none; cursor: pointer;
+  color: var(--mat-sys-on-tertiary-container);
+  background: var(--mat-sys-tertiary-container);
+
+  &:hover { filter: brightness(1.05); }
+  &:focus-visible { outline: 2px solid var(--mat-sys-tertiary); }
+  .link-ico { font-size: 0.85rem; width: 0.85rem; height: 0.85rem; }
+}
+.links-bar,
 .tag-editor {
   display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
   padding: 0.35rem 0.75rem;
   border-bottom: 1px solid var(--mat-sys-outline-variant);
   background: var(--mat-sys-surface-container-low);
-
+}
+.tag-editor {
   .tag-input {
     flex: 1 1 110px; min-width: 110px;
     border: none; background: transparent;
