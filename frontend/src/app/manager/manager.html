@@ -184,6 +184,7 @@
                     @for (t of n.tags; track t) { <span class="chip">#{{ t }}</span> }
                   </div>
                 }
+                <div class="row-meta">{{ authorLine(n) }}</div>
               </div>
               @if (!inTrash()) {
                 @if (n.isOwner) {
@@ -245,6 +246,9 @@
                 <mat-icon>close</mat-icon>
               </button>
             </div>
+            @if (openNote(); as on) {
+              <div class="pane-meta">{{ authorLine(on) }}</div>
+            }
             @if (canEditOpen()) {
               <div class="tag-editor">
                 <mat-chip-grid #chipGrid aria-label="Tags">
@@ -310,6 +314,8 @@
               [style.top.px]="(wallLayout().get(n.id)?.y ?? 0) * CELL"
               [class.checked]="isSelected(n.id)"
               [class.foreign]="!n.isOwner"
+              [matTooltip]="authorLine(n)"
+              matTooltipShowDelay="400"
               (click)="open(n.id)"
             >
               <mat-checkbox class="card-check" [checked]="isSelected(n.id)"
@@ -372,6 +378,9 @@
                 <mat-icon>close</mat-icon>
               </button>
             </div>
+            @if (openNote(); as on) {
+              <div class="pane-meta">{{ authorLine(on) }}</div>
+            }
             @if (canEditOpen()) {
               <div class="tag-editor">
                 <mat-chip-grid #chipGridModal aria-label="Tags">

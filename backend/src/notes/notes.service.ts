@@ -37,7 +37,9 @@ export interface NoteSummary {
   title: string;
   visibility: Visibility;
   ownerId: string;
+  ownerName: string;
   isOwner: boolean;
+  lastEditedByName: string | null;
   position: number;
   pinned: boolean;
   wallX: number | null;
@@ -55,6 +57,8 @@ export interface NoteSummary {
 type NoteWithMeta = Note & {
   tags: { tag: { name: string } }[];
   shares: { seenAt: Date | null }[];
+  owner: { displayName: string };
+  lastEditedBy: { displayName: string } | null;
 };
 
 const TRASH_RETENTION_DAYS = 30;
@@ -255,13 +259,19 @@ export class NotesService {
         ...(dto.dueDate !== undefined
           ? { dueDate: dto.dueDate === null ? null : new Date(dto.dueDate) }
           : {}),
+        // Attribute the edit to the acting user (today always the owner).
+        lastEditedById: userId,
       },
       include: this.metaInclude(userId),
     });
     return this.toSummary(note, userId);
   }
 
-  async updateContent(noteId: string, dto: UpdateNoteContentDto) {
+  async updateContent(
+    noteId: string,
+    userId: string,
+    dto: UpdateNoteContentDto,
+  ) {
     if (!isProseMirrorDoc(dto.content)) {
       throw new BadRequestException('content must be a ProseMirror "doc" node');
     }
@@ -271,6 +281,8 @@ export class NotesService {
       content: dto.content as Prisma.InputJsonValue,
       contentText,
       contentUpdatedAt: now,
+      // Attribute the edit to the acting user (today always the owner).
+      lastEditedById: userId,
     };
 
     if (dto.baseContentUpdatedAt) {
@@ -490,6 +502,8 @@ export class NotesService {
         orderBy: { tag: { name: 'asc' as const } },
       },
       shares: { where: { userId }, select: { seenAt: true } },
+      owner: { select: { displayName: true } },
+      lastEditedBy: { select: { displayName: true } },
     };
   }
 
@@ -500,7 +514,9 @@ export class NotesService {
       title: note.title,
       visibility: note.visibility,
       ownerId: note.ownerId,
+      ownerName: note.owner.displayName,
       isOwner: note.ownerId === userId,
+      lastEditedByName: note.lastEditedBy?.displayName ?? null,
       position: note.position,
       pinned: note.pinned,
       wallX: note.wallX,

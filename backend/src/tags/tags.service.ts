@@ -92,6 +92,12 @@ export class TagsService {
       this.prisma.tag.deleteMany({
         where: { ownerId, notes: { none: {} }, id: { notIn: tagIds } },
       }),
+      // Attribute the edit to the acting user (today always the owner) and bump
+      // updatedAt via Prisma's @updatedAt.
+      this.prisma.note.update({
+        where: { id: noteId },
+        data: { lastEditedById: ownerId },
+      }),
     ]);
 
     const current = await this.prisma.noteTag.findMany({

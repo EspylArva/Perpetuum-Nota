@@ -35,7 +35,11 @@ export interface NoteSummaryDto {
   title: string;
   visibility: Visibility;
   ownerId: string;
+  // display name of the owner (author)
+  ownerName: string;
   isOwner: boolean;
+  // display name of the user who last edited the note; null = never edited
+  lastEditedByName: string | null;
   // explicit sort order (lower = earlier); set via drag-reorder
   position: number;
   pinned: boolean;

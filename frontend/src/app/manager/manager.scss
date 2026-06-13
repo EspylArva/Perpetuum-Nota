@@ -185,6 +185,11 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .row-tags { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-top: 0.2rem; }
+  .row-meta {
+    font-size: 0.7rem; color: var(--mat-sys-on-surface-variant);
+    margin-top: 0.25rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
 
   .row-act {
     opacity: 0.45;
@@ -213,6 +218,13 @@
   border-bottom: 1px solid var(--mat-sys-outline-variant);
   background: var(--mat-sys-surface-container-low);
   .pinned { color: var(--mat-sys-primary); }
+}
+
+.pane-meta {
+  padding: 0.3rem 0.85rem;
+  font-size: 0.72rem; color: var(--mat-sys-on-surface-variant);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container-low);
 }
 
 .pane app-note-editor, .modal app-note-editor { flex: 1; min-height: 0; display: flex; }

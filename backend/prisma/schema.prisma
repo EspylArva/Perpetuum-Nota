@@ -28,6 +28,7 @@ model User {
   updatedAt    DateTime @updatedAt
 
   notes          Note[]
+  editedNotes    Note[]       @relation("LastEditor")
   sharedNotes    NoteShare[]
   invitesSent    Invite[]     @relation("InvitedBy")
   uploadedImages ImageAsset[]
@@ -52,6 +53,11 @@ model Note {
   id               String     @id @default(uuid())
   ownerId          String
   owner            User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  // The user who most recently edited content/meta/tags. Null = never edited
+  // since creation. Today only the owner can edit; this generalises if shared
+  // editing ever lands. SetNull keeps the note if the editor is deleted.
+  lastEditedById   String?
+  lastEditedBy     User?      @relation("LastEditor", fields: [lastEditedById], references: [id], onDelete: SetNull)
   title            String     @default("")
   content          Json       // ProseMirror / TipTap document (jsonb)
   // Plain text extracted from `content` at write time; feeds full-text search

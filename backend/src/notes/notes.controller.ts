@@ -130,8 +130,12 @@ export class NotesController {
   @Patch(':id/content')
   @UseGuards(NoteAccessGuard)
   @NoteAccess('edit')
-  updateContent(@Param('id') id: string, @Body() dto: UpdateNoteContentDto) {
-    return this.notes.updateContent(id, dto);
+  updateContent(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateNoteContentDto,
+  ) {
+    return this.notes.updateContent(id, user.id, dto);
   }
 
   // Soft delete — moves to trash. Restore or purge below.

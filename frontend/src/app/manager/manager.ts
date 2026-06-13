@@ -61,6 +61,7 @@ import {
   sameDay,
   startOfDay,
 } from './due-date';
+import { timeAgo } from './time-ago';
 import { NoteEditor } from '../editor/note-editor';
 import { ChangePasswordDialog } from '../features/change-password/change-password-dialog';
 import { openConfirm } from '../shared-ui/confirm-dialog';
@@ -154,6 +155,7 @@ export class Manager implements OnInit {
   // Expose the pure helpers to the template.
   readonly dueLabel = dueLabel;
   readonly dueState = dueState;
+  readonly timeAgo = timeAgo;
   readonly openId = signal<string | null>(null);
   readonly shareId = signal<string | null>(null);
   readonly selected = signal<ReadonlySet<string>>(new Set());
@@ -695,6 +697,19 @@ export class Manager implements OnInit {
     this.dueStart.set(null);
     this.dueEnd.set(null);
     this.refresh();
+  }
+
+  // --- authorship ---
+
+  /**
+   * One-line attribution shown under list rows / in the editor header and as
+   * the wall-card tooltip: "by {owner} · edited {when}[ by {editor}]". The
+   * "by {editor}" segment is omitted when the note has never been edited.
+   */
+  authorLine(note: NoteSummaryDto): string {
+    let line = `by ${note.ownerName} · edited ${timeAgo(note.updatedAt)}`;
+    if (note.lastEditedByName) line += ` by ${note.lastEditedByName}`;
+    return line;
   }
 
   logout(): void {
