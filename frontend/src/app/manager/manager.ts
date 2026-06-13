@@ -18,7 +18,7 @@ import {
   CdkDropList,
   moveItemInArray,
 } from '@angular/cdk/drag-drop';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -35,6 +35,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatListModule } from '@angular/material/list';
+import { MatMenuModule, MatMenuTrigger } from '@angular/material/menu';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -62,6 +63,7 @@ import {
   startOfDay,
 } from './due-date';
 import { timeAgo } from './time-ago';
+import { shouldOpenInApp } from './click-modifiers';
 import { NoteEditor } from '../editor/note-editor';
 import { ChangePasswordDialog } from '../features/change-password/change-password-dialog';
 import { openConfirm } from '../shared-ui/confirm-dialog';
@@ -93,6 +95,7 @@ interface CellPos {
     MatToolbarModule,
     MatSidenavModule,
     MatListModule,
+    MatMenuModule,
     MatBadgeModule,
     MatButtonModule,
     MatButtonToggleModule,
@@ -118,6 +121,7 @@ export class Manager implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly viewModeStore = inject(ViewModeStore);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly dialog = inject(MatDialog);
   private readonly snack = inject(MatSnackBar);
   private readonly breakpoints = inject(BreakpointObserver);
@@ -191,6 +195,20 @@ export class Manager implements OnInit {
   );
   readonly selectionCount = computed(() => this.selected().size);
   readonly inTrash = computed(() => this.filter() === 'trash');
+
+  // --- right-click context menu ---
+  /** Hidden trigger positioned at the cursor; the menu attaches to it. */
+  private readonly ctxTrigger = viewChild<MatMenuTrigger>('ctxTrigger');
+  /** Viewport position of the hidden trigger (set on (contextmenu)). */
+  readonly ctxPos = signal<{ x: number; y: number }>({ x: 0, y: 0 });
+  /** The note the context menu currently targets (drives its items). */
+  readonly ctxNote = signal<NoteSummaryDto | null>(null);
+
+  /** All visible notes selected? Drives the select-all toggle's icon/state. */
+  readonly allSelected = computed(() => {
+    const visible = this.notes();
+    return visible.length > 0 && visible.every((n) => this.selected().has(n.id));
+  });
 
   /**
    * Set of local-day timestamps (start-of-day ms) that have ≥1 due note. Derived
@@ -310,6 +328,29 @@ export class Manager implements OnInit {
     this.refresh();
     this.refreshTags();
     this.refreshBadge();
+
+    // Deep link: /note/:id opens exactly that note. React to param changes so
+    // in-app navigation (e.g. a future router push) works too. The id is
+    // validated with a direct GET so an unknown/inaccessible note shows a
+    // snackbar and redirects to the list instead of opening a broken editor.
+    this.route.paramMap.subscribe((params) => {
+      const id = params.get('id');
+      if (!id) return;
+      this.openDeepLink(id);
+    });
+  }
+
+  /** Validates a deep-linked id, then opens it; bad id → snackbar + redirect. */
+  private openDeepLink(id: string): void {
+    this.api.get(id).subscribe({
+      next: () => this.open(id),
+      error: () => {
+        this.snack.open('Note not found or not accessible', 'Dismiss', {
+          duration: 4000,
+        });
+        void this.router.navigate(['']);
+      },
+    });
   }
 
   refresh(): void {
@@ -474,6 +515,40 @@ export class Manager implements OnInit {
     }
   }
 
+  /**
+   * Plain left-click on a row's title anchor: open in-app and suppress the
+   * browser navigation. Ctrl/Cmd/Shift/Alt/middle-click fall through so the
+   * browser opens `/note/:id` natively (a new tab/window) — see shouldOpenInApp.
+   */
+  rowOpen(id: string, event: MouseEvent): void {
+    if (!shouldOpenInApp(event)) return; // let the browser handle the anchor
+    event.preventDefault();
+    this.open(id);
+  }
+
+  /**
+   * Right-click on a row / card: position the hidden trigger at the cursor and
+   * open the Material menu for that note. Suppresses the native browser menu.
+   */
+  openContextMenu(note: NoteSummaryDto, event: MouseEvent): void {
+    event.preventDefault();
+    this.ctxNote.set(note);
+    this.ctxPos.set({ x: event.clientX, y: event.clientY });
+    const trigger = this.ctxTrigger();
+    if (!trigger) return;
+    // Re-open at the new position if a previous menu is still showing.
+    trigger.closeMenu();
+    trigger.openMenu();
+  }
+
+  /** Opens `/note/:id` in a new browser tab (context-menu "Open in new tab"). */
+  openInNewTab(id: string): void {
+    const url = this.router.serializeUrl(
+      this.router.createUrlTree(['/note', id]),
+    );
+    window.open(url, '_blank', 'noopener');
+  }
+
   openShare(id: string): void {
     this.shareId.set(id);
   }
@@ -530,6 +605,18 @@ export class Manager implements OnInit {
 
   clearSelection(): void {
     this.selected.set(new Set());
+  }
+
+  /**
+   * Select-all toggle over the current (filtered) view: if every visible note
+   * is already selected, clear; otherwise select them all.
+   */
+  toggleSelectAll(): void {
+    if (this.allSelected()) {
+      this.clearSelection();
+      return;
+    }
+    this.selected.set(new Set(this.notes().map((n) => n.id)));
   }
 
   // --- delete / trash lifecycle ---

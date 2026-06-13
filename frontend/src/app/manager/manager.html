@@ -127,6 +127,13 @@
           <mat-button-toggle value="wall"><mat-icon>grid_view</mat-icon></mat-button-toggle>
         </mat-button-toggle-group>
         <span class="spacer"></span>
+        <button matIconButton (click)="toggleSelectAll()" [disabled]="notes().length === 0"
+                [class.active]="allSelected()"
+                [matTooltip]="allSelected() ? 'Clear selection' : 'Select all'"
+                [attr.aria-label]="allSelected() ? 'Clear selection' : 'Select all'"
+                aria-haspopup="false">
+          <mat-icon>select_all</mat-icon>
+        </button>
         @if (selectionCount() > 0) {
           <button matButton="filled" class="danger" (click)="batchDelete()">
             <mat-icon>delete</mat-icon> Trash ({{ selectionCount() }})
@@ -159,12 +166,13 @@
         <aside class="rows" cdkDropList (cdkDropListDropped)="drop($event)">
           @for (n of notes(); track n.id) {
             <div class="row" cdkDrag [cdkDragDisabled]="!canReorder() || !n.isOwner"
-                 [class.open]="n.id === openId()" [class.checked]="isSelected(n.id)">
+                 [class.open]="n.id === openId()" [class.checked]="isSelected(n.id)"
+                 (contextmenu)="openContextMenu(n, $event)">
               @if (!inTrash()) {
                 <mat-checkbox class="row-check" [checked]="isSelected(n.id)"
                               (click)="$event.stopPropagation()" (change)="toggleSelect(n.id)" />
               }
-              <div class="row-main" (click)="open(n.id)">
+              <a class="row-main" [routerLink]="['/note', n.id]" (click)="rowOpen(n.id, $event)">
                 <div class="row-title">
                   @if (n.pinned) { <mat-icon class="pin-ico" inline>push_pin</mat-icon> }
                   <span class="title-text" [class.due-passed]="n.dueDate && dueState(n.dueDate) === 'passed'">{{ n.title || 'Untitled' }}</span>
@@ -185,7 +193,7 @@
                   </div>
                 }
                 <div class="row-meta">{{ authorLine(n) }}</div>
-              </div>
+              </a>
               @if (!inTrash()) {
                 @if (n.isOwner) {
                   <button matIconButton class="row-act" [class.pinned]="n.pinned"
@@ -317,6 +325,7 @@
               [matTooltip]="authorLine(n)"
               matTooltipShowDelay="400"
               (click)="open(n.id)"
+              (contextmenu)="openContextMenu(n, $event)"
             >
               <mat-checkbox class="card-check" [checked]="isSelected(n.id)"
                             (click)="$event.stopPropagation()" (change)="toggleSelect(n.id)" />
@@ -440,3 +449,49 @@
 @if (showPasswordDialog()) {
   <app-change-password-dialog (close)="showPasswordDialog.set(false)" />
 }
+
+<!-- Right-click context menu. A zero-size element pinned at the cursor anchors
+     the Material menu; openContextMenu() positions it and opens the menu. -->
+<div class="ctx-anchor" [style.left.px]="ctxPos().x" [style.top.px]="ctxPos().y"
+     [matMenuTriggerFor]="noteCtxMenu" #ctxTrigger="matMenuTrigger"></div>
+<mat-menu #noteCtxMenu="matMenu">
+  @if (ctxNote(); as n) {
+    @if (inTrash()) {
+      <button mat-menu-item (click)="open(n.id)">
+        <mat-icon>visibility</mat-icon><span>Open</span>
+      </button>
+      <button mat-menu-item (click)="openInNewTab(n.id)">
+        <mat-icon>open_in_new</mat-icon><span>Open in new tab</span>
+      </button>
+      <button mat-menu-item (click)="restore(n.id)">
+        <mat-icon>restore_from_trash</mat-icon><span>Restore</span>
+      </button>
+      <button mat-menu-item (click)="deleteForever(n.id)">
+        <mat-icon>delete_forever</mat-icon><span>Delete forever</span>
+      </button>
+    } @else {
+      <button mat-menu-item (click)="open(n.id)">
+        <mat-icon>visibility</mat-icon><span>Open</span>
+      </button>
+      <button mat-menu-item (click)="openInNewTab(n.id)">
+        <mat-icon>open_in_new</mat-icon><span>Open in new tab</span>
+      </button>
+      @if (n.isOwner) {
+        <button mat-menu-item (click)="togglePin(n)">
+          <mat-icon>push_pin</mat-icon><span>{{ n.pinned ? 'Unpin' : 'Pin' }}</span>
+        </button>
+        <button mat-menu-item (click)="openShare(n.id)">
+          <mat-icon>share</mat-icon><span>Share…</span>
+        </button>
+      }
+      <button mat-menu-item (click)="duplicate(n.id)">
+        <mat-icon>content_copy</mat-icon><span>Duplicate</span>
+      </button>
+      @if (n.isOwner) {
+        <button mat-menu-item (click)="deleteOne(n.id)">
+          <mat-icon>delete</mat-icon><span>Move to trash</span>
+        </button>
+      }
+    }
+  }
+</mat-menu>

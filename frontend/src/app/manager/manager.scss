@@ -127,6 +127,17 @@
     --mat-button-filled-label-text-color: var(--mat-sys-on-error);
   }
   .trash-note { font-size: 0.82rem; color: var(--mat-sys-on-surface-variant); }
+  /* Select-all toggle: tinted while every visible note is selected. */
+  .active { color: var(--mat-sys-primary); }
+}
+
+/* Zero-size anchor pinned at the cursor; the right-click Material menu attaches
+   here. Invisible and non-interactive — it only provides a position. */
+.ctx-anchor {
+  position: fixed;
+  width: 0;
+  height: 0;
+  visibility: hidden;
 }
 
 /* Active due-date filter shown as a removable chip above the notes list. */
@@ -175,7 +186,13 @@
   &.checked { outline: 2px solid var(--mat-sys-primary); outline-offset: -2px; }
 
   .row-check { margin-top: 0.1rem; }
-  .row-main { flex: 1; min-width: 0; cursor: pointer; padding-top: 0.3rem; }
+  /* row-main is an <a> (deep link) so Ctrl/middle-click opens a new tab; reset
+     the default anchor look so it still reads as a plain list row. */
+  .row-main {
+    flex: 1; min-width: 0; cursor: pointer; padding-top: 0.3rem;
+    display: block; color: inherit; text-decoration: none;
+    &:hover, &:focus { text-decoration: none; color: inherit; }
+  }
   .row-title {
     font-weight: 600; font-size: 0.9rem;
     display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;
