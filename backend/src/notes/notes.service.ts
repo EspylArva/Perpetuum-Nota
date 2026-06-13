@@ -30,6 +30,8 @@ export interface ListOptions {
   // local-day bounds). Notes with a null dueDate are excluded when either is set.
   dueAfter?: Date;
   dueBefore?: Date;
+  // Organizational folder filter — notes directly in this folder (owner only).
+  folderId?: string;
 }
 
 export interface NoteSummary {
@@ -46,6 +48,8 @@ export interface NoteSummary {
   wallY: number | null;
   deletedAt: Date | null;
   dueDate: Date | null;
+  /** Organizational folder the note lives in; null = root (no folder). */
+  folderId: string | null;
   updatedAt: Date;
   contentUpdatedAt: Date;
   preview: string;
@@ -92,7 +96,7 @@ export class NotesService {
     userId: string,
     opts: ListOptions,
   ): Promise<NoteSummary[]> {
-    const { filter, q, tag, dueAfter, dueBefore } = opts;
+    const { filter, q, tag, dueAfter, dueBefore, folderId } = opts;
 
     if (filter === 'trash') {
       // Trash is strictly the viewer's own notes; shared/public notes in
@@ -145,6 +149,13 @@ export class NotesService {
       });
     }
 
+    // Folder filter — notes directly in this folder. Owner-scoped: only the
+    // owner's own folder ids match (the note's owner clause above already
+    // narrows the candidate set, and folders never cross accounts).
+    if (folderId) {
+      and.push({ folderId, ownerId: userId });
+    }
+
     const notes = await this.prisma.note.findMany({
       where: { AND: and },
       include: this.metaInclude(userId),
@@ -170,9 +181,7 @@ export class NotesService {
     return rows.map((r) => r.id);
   }
 
-  private orderBy(
-    sort?: NoteSort,
-  ): Prisma.NoteOrderByWithRelationInput[] {
+  private orderBy(sort?: NoteSort): Prisma.NoteOrderByWithRelationInput[] {
     const pinnedFirst: Prisma.NoteOrderByWithRelationInput = {
       pinned: 'desc',
     };
@@ -248,6 +257,27 @@ export class NotesService {
   }
 
   async updateMeta(noteId: string, userId: string, dto: UpdateNoteDto) {
+    // When filing into a folder, the target folder must belong to the acting
+    // user, and the note being filed must be owned by them (a folder is the
+    // owner's private organization; you never file someone else's note). null
+    // clears the folder (move to root).
+    if (dto.folderId !== undefined && dto.folderId !== null) {
+      const note = await this.prisma.note.findUnique({
+        where: { id: noteId },
+        select: { ownerId: true },
+      });
+      if (!note || note.ownerId !== userId) {
+        throw new NotFoundException('Note not found');
+      }
+      const folder = await this.prisma.folder.findUnique({
+        where: { id: dto.folderId },
+        select: { ownerId: true },
+      });
+      if (!folder || folder.ownerId !== userId) {
+        throw new NotFoundException('Folder not found');
+      }
+    }
+
     const note = await this.prisma.note.update({
       where: { id: noteId },
       data: {
@@ -259,6 +289,8 @@ export class NotesService {
         ...(dto.dueDate !== undefined
           ? { dueDate: dto.dueDate === null ? null : new Date(dto.dueDate) }
           : {}),
+        // null clears the folder (move to root); a uuid files it.
+        ...(dto.folderId !== undefined ? { folderId: dto.folderId } : {}),
         // Attribute the edit to the acting user (today always the owner).
         lastEditedById: userId,
       },
@@ -523,6 +555,7 @@ export class NotesService {
       wallY: note.wallY,
       deletedAt: note.deletedAt,
       dueDate: note.dueDate,
+      folderId: note.folderId,
       updatedAt: note.updatedAt,
       contentUpdatedAt: note.contentUpdatedAt,
       preview: previewFromText(note.contentText),

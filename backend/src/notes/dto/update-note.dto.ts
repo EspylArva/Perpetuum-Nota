@@ -4,6 +4,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -40,4 +41,12 @@ export class UpdateNoteDto {
   @ValidateIf((o: UpdateNoteDto) => o.dueDate !== null)
   @IsISO8601()
   dueDate?: string | null;
+
+  // Folder id to file the note under, or null to move it to the root (no
+  // folder). `null` skips the @IsUUID check (ValidateIf) so it clears the
+  // column; any non-uuid value is rejected with 400.
+  @IsOptional()
+  @ValidateIf((o: UpdateNoteDto) => o.folderId !== null)
+  @IsUUID()
+  folderId?: string | null;
 }

@@ -44,6 +44,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { map } from 'rxjs';
 import type {
+  FolderDto,
   NoteDto,
   NoteFilter,
   NoteSort,
@@ -53,6 +54,7 @@ import type {
 import { AuthService } from '../core/auth.service';
 import { NotesApi } from '../core/notes.api';
 import { TagsApi } from '../core/tags.api';
+import { FoldersApi } from '../core/folders.api';
 import { ThemeStore } from '../core/theme.store';
 import { SidenavStore } from '../core/sidenav.store';
 import { ViewModeStore } from '../core/view-mode.store';
@@ -66,6 +68,9 @@ import {
 } from './due-date';
 import { timeAgo } from './time-ago';
 import { shouldOpenInApp } from './click-modifiers';
+import { FolderTree } from './folder-tree';
+import type { FolderNode } from './folder-tree.util';
+import { openMoveToFolder } from './move-to-folder-dialog';
 import { NoteEditor } from '../editor/note-editor';
 import { OpenNotesStore } from '../editor/open-notes.store';
 import { ChangePasswordDialog } from '../features/change-password/change-password-dialog';
@@ -90,6 +95,7 @@ interface CellPos {
     NoteEditor,
     ShareDialog,
     ChangePasswordDialog,
+    FolderTree,
     RouterLink,
     CdkDropList,
     CdkDrag,
@@ -121,6 +127,7 @@ interface CellPos {
 export class Manager implements OnInit {
   private readonly api = inject(NotesApi);
   private readonly tagsApi = inject(TagsApi);
+  private readonly foldersApi = inject(FoldersApi);
   private readonly auth = inject(AuthService);
   private readonly viewModeStore = inject(ViewModeStore);
   private readonly router = inject(Router);
@@ -152,6 +159,18 @@ export class Manager implements OnInit {
   readonly filter = signal<NoteFilter>('all');
   readonly activeTag = signal<string | null>(null);
   readonly q = signal('');
+
+  // --- folders ---
+  readonly folders = signal<FolderDto[]>([]);
+  /** Folder id the notes list is filtered to, or null = no folder filter. */
+  readonly activeFolderId = signal<string | null>(null);
+  /** Expanded folder ids in the sidebar tree. */
+  readonly expandedFolders = signal<ReadonlySet<string>>(new Set<string>());
+  /** Display name of the active folder for the filter chip. */
+  readonly activeFolderName = computed(() => {
+    const id = this.activeFolderId();
+    return id ? (this.folders().find((f) => f.id === id)?.name ?? null) : null;
+  });
 
   // --- due-date calendar filter ---
   // The active day-range filter as local Date day-anchors (start-of-day). A
@@ -332,6 +351,7 @@ export class Manager implements OnInit {
   ngOnInit(): void {
     this.refresh();
     this.refreshTags();
+    this.refreshFolders();
     this.refreshBadge();
 
     // Deep link: /note/:id opens exactly that note. React to param changes so
@@ -387,6 +407,7 @@ export class Manager implements OnInit {
         dueBefore: this.dueStart()
           ? endOfDay(this.dueEnd() ?? this.dueStart()!).toISOString()
           : undefined,
+        folderId: this.activeFolderId() ?? undefined,
       })
       .subscribe({
         next: (notes) => {
@@ -401,6 +422,10 @@ export class Manager implements OnInit {
     this.tagsApi.list().subscribe((t) => this.tags.set(t));
   }
 
+  refreshFolders(): void {
+    this.foldersApi.list().subscribe((f) => this.folders.set(f));
+  }
+
   refreshBadge(): void {
     this.api.sharedBadge().subscribe((b) => this.sharedBadge.set(b.count));
   }
@@ -408,6 +433,7 @@ export class Manager implements OnInit {
   setFilter(filter: NoteFilter): void {
     this.filter.set(filter);
     this.activeTag.set(null);
+    this.activeFolderId.set(null);
     this.dueStart.set(null);
     this.dueEnd.set(null);
     this.openId.set(null);
@@ -419,12 +445,116 @@ export class Manager implements OnInit {
   setTag(name: string): void {
     this.activeTag.set(name);
     this.filter.set('all');
+    this.activeFolderId.set(null);
     this.dueStart.set(null);
     this.dueEnd.set(null);
     this.openId.set(null);
     this.clearSelection();
     this.sidebarOpen.set(false);
     this.refresh();
+  }
+
+  // --- folders ---
+
+  /** Filter the notes list to a folder (clears tag/due filters, like setTag). */
+  setFolder(id: string): void {
+    this.activeFolderId.set(id);
+    this.filter.set('all');
+    this.activeTag.set(null);
+    this.dueStart.set(null);
+    this.dueEnd.set(null);
+    this.openId.set(null);
+    this.clearSelection();
+    this.sidebarOpen.set(false);
+    this.refresh();
+  }
+
+  clearFolderFilter(): void {
+    this.activeFolderId.set(null);
+    this.refresh();
+  }
+
+  toggleFolderExpand(id: string): void {
+    this.expandedFolders.update((set) => {
+      const next = new Set(set);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  /** Prompts for a name and creates a folder at the root. */
+  createRootFolder(): void {
+    const name = window.prompt('New folder name');
+    if (name === null) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    this.foldersApi.create(trimmed, null).subscribe(() => this.refreshFolders());
+  }
+
+  createSubfolder(parent: FolderNode): void {
+    const name = window.prompt(`New subfolder in "${parent.name}"`);
+    if (name === null) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    this.foldersApi.create(trimmed, parent.id).subscribe(() => {
+      // Reveal the new child by expanding its parent.
+      this.expandedFolders.update((set) => new Set(set).add(parent.id));
+      this.refreshFolders();
+    });
+  }
+
+  renameFolder(folder: FolderNode): void {
+    const name = window.prompt('Rename folder', folder.name);
+    if (name === null) return;
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === folder.name) return;
+    this.foldersApi.rename(folder.id, trimmed).subscribe(() => this.refreshFolders());
+  }
+
+  deleteFolder(folder: FolderNode): void {
+    openConfirm(this.dialog, {
+      title: `Delete "${folder.name}"?`,
+      message:
+        'The folder is removed. Any notes and subfolders inside it move up to ' +
+        'the parent folder (or to the root if this is a top-level folder). No ' +
+        'notes are deleted.',
+      confirmLabel: 'Delete folder',
+      destructive: true,
+    }).subscribe((ok) => {
+      if (!ok) return;
+      this.foldersApi.remove(folder.id).subscribe(() => {
+        // If we were filtering by the deleted folder, drop back to All notes.
+        if (this.activeFolderId() === folder.id) {
+          this.activeFolderId.set(null);
+        }
+        this.refreshFolders();
+        this.refresh();
+      });
+    });
+  }
+
+  /** Context-menu "Move to folder…": opens the picker and files the note. */
+  moveToFolder(note: NoteSummaryDto): void {
+    openMoveToFolder(this.dialog, {
+      folders: this.folders(),
+      currentFolderId: note.folderId,
+    }).subscribe((result) => {
+      if (result === undefined) return; // cancelled
+      if (result === note.folderId) return; // no change
+      this.api.updateMeta(note.id, { folderId: result }).subscribe((updated) => {
+        this.notes.update((list) =>
+          list.map((n) =>
+            n.id === note.id ? { ...n, folderId: updated.folderId } : n,
+          ),
+        );
+        // If filtering by a folder the note just left, drop it from the view.
+        if (this.activeFolderId() && updated.folderId !== this.activeFolderId()) {
+          this.notes.update((list) => list.filter((n) => n.id !== note.id));
+        }
+        this.refreshFolders(); // note counts changed
+      });
+    });
   }
 
   onSearch(value: string): void {
@@ -690,6 +820,7 @@ export class Manager implements OnInit {
       return next;
     });
     this.refreshTags();
+    this.refreshFolders(); // trashing/restoring changes folder note counts
   }
 
   // --- tags on the open note ---

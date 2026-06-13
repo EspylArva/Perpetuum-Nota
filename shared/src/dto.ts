@@ -50,6 +50,8 @@ export interface NoteSummaryDto {
   deletedAt: string | null;
   // optional due date (ISO timestamp); null = no due date
   dueDate: string | null;
+  // organizational folder id the note lives in; null = root (no folder)
+  folderId: string | null;
   updatedAt: string;
   contentUpdatedAt: string;
   // short plain-text preview for cards / list rows
@@ -75,6 +77,8 @@ export interface UpdateNoteDto {
   wallY?: number;
   // ISO timestamp to set the due date, or null to clear it
   dueDate?: string | null;
+  // folder id to file the note under, or null to move it to the root
+  folderId?: string | null;
 }
 
 export interface UpdateNoteContentDto {
@@ -109,6 +113,25 @@ export interface TagDto {
   name: string;
   // live (non-trashed) notes carrying this tag
   count: number;
+}
+
+export interface FolderDto {
+  id: string;
+  name: string;
+  // parent folder id, or null for a root folder
+  parentId: string | null;
+  // live (non-trashed) notes directly in this folder
+  noteCount: number;
+}
+
+export interface CreateFolderDto {
+  name: string;
+  parentId?: string | null;
+}
+
+export interface UpdateFolderDto {
+  name?: string;
+  parentId?: string | null;
 }
 
 export interface SharedBadgeDto {

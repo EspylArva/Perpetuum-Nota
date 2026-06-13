@@ -67,6 +67,7 @@ export class NotesController {
     @Query('sort') sort?: string,
     @Query('dueAfter') dueAfter?: string,
     @Query('dueBefore') dueBefore?: string,
+    @Query('folderId') folderId?: string,
   ) {
     return this.notes.listViewable(user.id, {
       filter: normalizeFilter(filter),
@@ -75,6 +76,7 @@ export class NotesController {
       sort: normalizeSort(sort),
       dueAfter: parseDate(dueAfter),
       dueBefore: parseDate(dueBefore),
+      folderId: folderId || undefined,
     });
   }
 

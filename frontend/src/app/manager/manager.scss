@@ -48,6 +48,37 @@
     align-self: center;
   }
 
+  /* ---- folders ---- */
+  .folders-section { margin-top: 0.4rem; padding: 0 0.4rem; }
+  .folders-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-right: 0.4rem;
+
+    .folders-add {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      color: var(--mat-sys-on-surface-variant);
+      cursor: pointer;
+      width: 26px; height: 26px;
+      border-radius: 4px;
+      &:hover {
+        background: var(--mat-sys-surface-container-high);
+        color: var(--mat-sys-on-surface);
+      }
+      mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
+    }
+  }
+  .folders-empty {
+    margin: 0.2rem 0.6rem;
+    font-size: 0.78rem;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
   /* ---- sidebar calendar ---- */
   .cal-section { margin-top: 0.6rem; }
   .cal-wrap {
@@ -80,6 +111,7 @@
     .tags-head,
     .tag-list,
     .cal-section,
+    .folders-section,
     [matListItemTitle],
     [matListItemMeta] {
       display: none;

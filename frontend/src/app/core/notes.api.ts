@@ -19,6 +19,8 @@ export interface ListQuery {
   // inclusive due-date window as ISO strings (client computes local-day bounds)
   dueAfter?: string;
   dueBefore?: string;
+  // organizational folder filter — notes directly in this folder
+  folderId?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -34,6 +36,7 @@ export class NotesApi {
     }
     if (query.dueAfter) params = params.set('dueAfter', query.dueAfter);
     if (query.dueBefore) params = params.set('dueBefore', query.dueBefore);
+    if (query.folderId) params = params.set('folderId', query.folderId);
     return this.http.get<NoteSummaryDto[]>('/api/notes', { params });
   }
 
@@ -69,6 +72,8 @@ export class NotesApi {
       wallY?: number;
       // ISO string sets the due date; null clears it
       dueDate?: string | null;
+      // folder id files the note; null clears it (move to root)
+      folderId?: string | null;
     },
   ): Observable<NoteSummaryDto> {
     return this.http.patch<NoteSummaryDto>(`/api/notes/${id}`, patch);

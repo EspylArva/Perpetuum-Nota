@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { BootstrapService } from './bootstrap/bootstrap.service';
 import { CommonModule } from './common/common.module';
+import { FoldersModule } from './folders/folders.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { NotesModule } from './notes/notes.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -32,6 +33,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     NotesModule,
     TagsModule,
+    FoldersModule,
     UploadsModule,
     MaintenanceModule,
   ],

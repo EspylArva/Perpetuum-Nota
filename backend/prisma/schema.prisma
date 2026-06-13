@@ -33,6 +33,7 @@ model User {
   invitesSent    Invite[]     @relation("InvitedBy")
   uploadedImages ImageAsset[]
   tags           Tag[]
+  folders        Folder[]
 }
 
 model Invite {
@@ -75,6 +76,11 @@ model Note {
   deletedAt        DateTime?
   // Optional due date. Plain timestamp; the client owns local-day bounds.
   dueDate          DateTime?
+  // Organizational folder (owner-scoped tree). Null = lives at the root. A note
+  // is in at most one folder. SetNull keeps the note when its folder is deleted
+  // (the service reparents up before delete; this is just the DB backstop).
+  folderId         String?
+  folder           Folder?    @relation(fields: [folderId], references: [id], onDelete: SetNull)
   contentUpdatedAt DateTime   @default(now())
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
@@ -87,7 +93,28 @@ model Note {
   @@index([ownerId, position])
   @@index([ownerId, deletedAt])
   @@index([ownerId, dueDate])
+  @@index([ownerId, folderId])
   @@index([deletedAt])
+}
+
+// Owner-scoped nested folders (Evernote-style notebook tree). A note lives in
+// at most one folder; folders can nest arbitrarily. Deleting a folder via the
+// service reparents its children + notes up to the parent (transaction) before
+// removing the row — the onDelete: Cascade on the self-relation is only a
+// DB-level backstop and is never the path the service takes.
+model Folder {
+  id        String   @id @default(uuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String
+  parentId  String?
+  parent    Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Folder[] @relation("FolderTree")
+  notes     Note[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId, parentId])
 }
 
 // Explicit per-user view grants on PRIVATE notes (view-only in the MVP).

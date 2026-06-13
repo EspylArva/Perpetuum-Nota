@@ -75,6 +75,29 @@
       </mat-nav-list>
     }
 
+    <div class="folders-section">
+      <div class="tags-head folders-head">
+        <span>Folders</span>
+        <button type="button" class="folders-add" (click)="createRootFolder()"
+                matTooltip="New folder" aria-label="New folder">
+          <mat-icon inline>create_new_folder</mat-icon>
+        </button>
+      </div>
+      @if (folders().length > 0) {
+        <app-folder-tree
+          [folders]="folders()"
+          [activeId]="activeFolderId()"
+          [expanded]="expandedFolders()"
+          (select)="setFolder($event)"
+          (toggle)="toggleFolderExpand($event)"
+          (newSubfolder)="createSubfolder($event)"
+          (rename)="renameFolder($event)"
+          (remove)="deleteFolder($event)" />
+      } @else {
+        <p class="folders-empty">No folders yet.</p>
+      }
+    </div>
+
     @if (!isHandset() && sidenav.collapsed() && activeTag()) {
       <mat-nav-list>
         <a mat-list-item [activated]="true"
@@ -149,15 +172,26 @@
       }
     </div>
 
-    @if (hasDueFilter()) {
+    @if (hasDueFilter() || activeFolderId()) {
       <div class="filter-bar">
-        <span class="filter-chip">
-          <mat-icon inline>event</mat-icon>{{ dueFilterLabel() }}
-          <button matIconButton class="filter-chip-x" aria-label="Clear due-date filter"
-                  matTooltip="Clear due-date filter" (click)="clearDueFilter()">
-            <mat-icon>close</mat-icon>
-          </button>
-        </span>
+        @if (hasDueFilter()) {
+          <span class="filter-chip">
+            <mat-icon inline>event</mat-icon>{{ dueFilterLabel() }}
+            <button matIconButton class="filter-chip-x" aria-label="Clear due-date filter"
+                    matTooltip="Clear due-date filter" (click)="clearDueFilter()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </span>
+        }
+        @if (activeFolderId()) {
+          <span class="filter-chip">
+            <mat-icon inline>folder</mat-icon>{{ activeFolderName() }}
+            <button matIconButton class="filter-chip-x" aria-label="Clear folder filter"
+                    matTooltip="Clear folder filter" (click)="clearFolderFilter()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </span>
+        }
       </div>
     }
 
@@ -488,6 +522,9 @@
         <mat-icon>content_copy</mat-icon><span>Duplicate</span>
       </button>
       @if (n.isOwner) {
+        <button mat-menu-item (click)="moveToFolder(n)">
+          <mat-icon>drive_file_move</mat-icon><span>Move to folder…</span>
+        </button>
         <button mat-menu-item (click)="deleteOne(n.id)">
           <mat-icon>delete</mat-icon><span>Move to trash</span>
         </button>
