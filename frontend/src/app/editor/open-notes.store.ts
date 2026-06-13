@@ -1,5 +1,5 @@
 import { Injectable, WritableSignal, inject, signal } from '@angular/core';
-import type { ProseMirrorDoc } from '@stickynotes/shared';
+import type { NoteDto, ProseMirrorDoc } from '@stickynotes/shared';
 import { NotesApi } from '../core/notes.api';
 
 export interface OpenNote {
@@ -78,6 +78,21 @@ export class OpenNotesStore {
       this.notes.set(noteId, n);
     }
     return n;
+  }
+
+  /**
+   * Seeds an entry from an already-fetched note so a later open() skips the
+   * network round-trip. Used by the deep-link path, which fetches the note to
+   * validate access before opening it — without this, open() would GET it
+   * again. No-op if the entry is already loaded.
+   */
+  prime(note: NoteDto): void {
+    const n = this.entry(note.id);
+    if (n.loaded()) return;
+    n.content.set(note.content);
+    n.contentUpdatedAt = note.contentUpdatedAt;
+    n.loaded.set(true);
+    n.serverVersion.update((v) => v + 1);
   }
 
   /** Ensures the note's content is fetched from the server (once). */

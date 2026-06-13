@@ -44,6 +44,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { map } from 'rxjs';
 import type {
+  NoteDto,
   NoteFilter,
   NoteSort,
   NoteSummaryDto,
@@ -66,6 +67,7 @@ import {
 import { timeAgo } from './time-ago';
 import { shouldOpenInApp } from './click-modifiers';
 import { NoteEditor } from '../editor/note-editor';
+import { OpenNotesStore } from '../editor/open-notes.store';
 import { ChangePasswordDialog } from '../features/change-password/change-password-dialog';
 import { openConfirm } from '../shared-ui/confirm-dialog';
 import { ShareDialog } from '../sharing/share-dialog';
@@ -126,6 +128,7 @@ export class Manager implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly snack = inject(MatSnackBar);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly openStore = inject(OpenNotesStore);
   private readonly breakpoints = inject(BreakpointObserver);
 
   readonly theme = inject(ThemeStore);
@@ -347,7 +350,17 @@ export class Manager implements OnInit {
   /** Validates a deep-linked id, then opens it; bad id → snackbar + redirect. */
   private openDeepLink(id: string): void {
     this.api.get(id).subscribe({
-      next: () => this.open(id),
+      next: (note) => {
+        // Seed the editor cache so open() doesn't refetch the content, and make
+        // sure the note is in the list so the pane header (title/pin/share/
+        // author) renders even when it falls outside the current filter view
+        // (e.g. a shared/public/trashed note deep-linked while filter='mine').
+        this.openStore.prime(note);
+        if (!this.notes().some((n) => n.id === id)) {
+          this.notes.update((list) => [note, ...list]);
+        }
+        this.open(id);
+      },
       error: () => {
         this.snack.open('Note not found or not accessible', 'Dismiss', {
           duration: 4000,
