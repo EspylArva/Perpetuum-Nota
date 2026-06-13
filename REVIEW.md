@@ -4,6 +4,29 @@
 
 ---
 
+## 2026-06-13 — Feature backlog delivered (branch `feature/backlog-2026-06-12`)
+
+The entire 2026-06-12 **Feature backlog** (TODO.md §2) shipped across 10 work packages, each
+spec- and quality-reviewed before the next began. Plan: `docs/superpowers/plans/2026-06-12-feature-backlog.md`.
+
+- **WP1 Admin** — temp-password generator in the create-user form + admin password reset endpoint (`POST /api/users/:id/password`, owner/admin-scoped).
+- **WP2 Editor formatting** — CodeBlockLowlight syntax highlighting, framed code blocks, blockquote vertical bar, `[text](url)` typed links (URL-allowlist gated), text color + size, KaTeX math (`$…$` / `$$…$$`, self-hosted/offline).
+- **WP3 Editor** — pure `docToMarkdown` exporter, export split-button (Markdown default + HTML), DOM-based math/code post-processing for the HTML export, toggleable TOC panel.
+- **WP4 UX** — tag autocomplete from existing tags; collapsible desktop sidebar (persisted).
+- **WP5 Due dates** — `Note.dueDate` + inclusive `dueAfter`/`dueBefore` API filter; nearing/passed styling; sidebar `mat-calendar` with click-day and Shift+Click-range filtering.
+- **WP6 Authorship** — `lastEditedById` column + author / last-editor / last-edit-date surfaced in list, editor, and wall.
+- **WP7 List nav** — `/note/:id` deep link, Ctrl/middle-click new-tab, right-click context menu (trash-aware), top-bar select-all.
+- **WP8 Folders** — nested owner-scoped `Folder` tree (cycle-safe, reparent-on-delete), sidebar tree, move-to-folder, `?folderId` filter.
+- **WP9 Links + graph** — `[[title]]` wikilinks (owner-scoped resolution, recomputed transactionally with each content save), linked-note pills, `/graph` force-directed view (viewable-only nodes, undirected dedup, hover-highlight).
+- **WP10 Wall** — floating non-modal draggable note windows (multiple, focus-stacking, cap 6, close-flushes-autosave), empty-space panning (clamped), micro-drag-suppressed open, root folder cards opening windowed mini-grids.
+
+New migrations (additive, in order): `add_due_date`, `add_last_edited_by`, `add_folders`, `add_note_links`.
+Final state: backend **25 unit + 86 e2e** green, frontend **155** green, all three production builds clean.
+Pure logic is unit-tested throughout (markdown export, TOC, due-date/time-ago helpers, folder-tree build, wikilink extraction, graph layout, pan clamp, drag threshold, password generator).
+**No NAS-relevant changes** (TODO.md §1): no new services/ports/required env vars; new migrations apply on boot like the rest; fonts/icons/KaTeX/highlight.js all self-hosted (LAN-only NAS still works offline). Section §3 (ideas from other apps) remains out of scope.
+
+---
+
 ## TL;DR
 
 The MVP foundation is genuinely strong — a pure, unit-tested `canAccess()` predicate, permission-checked image streaming, per-request account re-validation, and a decoupled editor that makes the v2 vision additive. **But it is not yet safe to expose at a URL.** Sharing notes turns ordinarily-minor app bugs into cross-account risks, and a handful of standard protections are simply off. The right move is one tight **"trust hardening" pass this week**, then fix the two things that will actually brick or frustrate a real user (admin lockout, no undo), and *only then* chase the v2 vision.

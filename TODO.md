@@ -1,8 +1,8 @@
 # TODO — Sticky Notes
 
-Two tracks live in this file:
-1. **NAS deployment** (sections 0–6) — blocked on the §0 decisions.
-2. **Feature backlog** (last section) — requested 2026-06-12, deliberately **not implemented yet**.
+1. **NAS deployment** (section 1, subsections 0–6) — blocked on the §0 decisions.
+2. **Feature backlog** (section 2)
+3. **Features that exist in similar apps** (section 3)
 
 ---
 
@@ -106,72 +106,81 @@ Produce `docker-compose.nas.yml` (kept separate from the dev/build compose):
 
 ---
 
-## Feature backlog (added 2026-06-12 — NOT implemented)
+## Feature backlog (added 2026-06-12 — ✅ IMPLEMENTED 2026-06-13)
 
-Requested feature set, recorded for planning. Items marked ✅ already exist (noted for
-accuracy); everything else is open. Implementation notes in parentheses are hints, not
-decisions.
+Requested feature set. **All items below shipped 2026-06-13** on branch
+`feature/backlog-2026-06-12` (plan: `docs/superpowers/plans/2026-06-12-feature-backlog.md`),
+each spec- and quality-reviewed. Items previously marked ✅ already existed. Implementation
+notes in parentheses were hints, not decisions. Section 3 (ideas from other apps) remains
+out of scope / not implemented.
 
 ### Features
 - [x] ~~Make a table for tags in the database~~ — ✅ already shipped 2026-06-11
       (`Tag` + `NoteTag` tables, owner-scoped, unique per owner).
-- [ ] Tags should autocomplete from the list of tags in the database (the tag input is
+- [x] Tags should autocomplete from the list of tags in the database (the tag input is
       free-text today; `GET /api/tags` already returns the candidate list).
-- [ ] Open multiple notes in multiple tabs using Ctrl + Click (needs a per-note deep-link
-      route, e.g. `/note/:id`, so a browser tab can open one note directly).
-- [ ] Contextual menu using right click on a note (open / open in new tab / pin / tag /
+- [x] Open multiple notes in multiple tabs using Ctrl + Click (needs a per-note deep-link
+      route, e.g. `/note/:id`, so a browser tab can open one note directly) in List mode.
+- [x] Contextual menu using right click on a note (open / open in new tab / pin / tag /
       share / duplicate / trash…).
-- [ ] Folder system: a note can only be in one folder at a time; folders can have
+- [x] Folder system: a note can only be in one folder at a time; folders can have
       subfolders (tree). (Schema: `Folder {id, ownerId, parentId?}` + `Note.folderId?`;
       sidebar tree UI; decide how folders interact with filters/search.)
-- [ ] LaTeX-style math support in note content (candidate: TipTap Mathematics extension,
+- [x] LaTeX-style math support in note content (candidate: TipTap Mathematics extension,
       KaTeX-based — keep self-hosted/offline).
-- [ ] Associate a date to a note ("due date"): emphasized when nearing, crossed out when
+- [x] Associate a date to a note ("due date"): emphasized when nearing, crossed out when
       passed; filterable by min/max date range.
-- [ ] Calendar in the left menu only: notes with a date appear on it; clicking a date
+- [x] Calendar in the left menu only: notes with a date appear on it; clicking a date
       filters to that date; with a date selected, Shift+Click another date filters by the
       min/max range.
-- [ ] Make the left menu collapsible and expandable (desktop; mobile already has the
+- [x] Make the left menu collapsible and expandable (desktop; mobile already has the
       over-mode drawer).
-- [ ] Note-to-note links via `[[title of another note]]` in the text. Linked notes are
+- [x] Note-to-note links via `[[title of another note]]` in the text. Linked notes are
       listed below the tag pills in the same pill style but visually distinct (different
       color). (Needs link resolution by title + storage/refresh of the reference list;
       decide behavior on title rename and on ambiguous titles.)
-- [ ] Graph view (Obsidian-style) as a menu entry: notes are nodes; an undirected edge
+- [x] Graph view (Obsidian-style) as a menu entry: notes are nodes; an undirected edge
       exists when either note references the other; note name rendered below each node;
       hovering a node highlights its edges and linked nodes.
-- [ ] Button in the top bar to select all notes (current view).
-- [ ] Show the author of each note, plus last editor and last edit date. (Author =
+- [x] Button in the top bar to select all notes (current view).
+- [x] Show the author of each note, plus last editor and last edit date. (Author =
       existing `ownerId`; last editor needs a new `lastEditedById` column — only owners
       can edit today, but that changes if shared editing ever lands.)
+- [x] Notes can be exported to Markdown format.
+- [x] Export button is a dropdown menu. Clicking on the menu item exports to markdown by
+      default, but dropdown has the options to export to HTML, markdown, or future formats
+      (other formats not implemented yet).
+- [x] Toggleable Table of Contents in the sidebar of the note editor.
 
 ### Note content formatting
-- [ ] Code blocks fenced with triple backticks rendered framed with a slightly different
+- [x] Code blocks fenced with triple backticks rendered framed with a slightly different
       background. If possible add syntax highlighting for the language specified after the
       fence. (TipTap CodeBlock already parses ``` fences today; the framed styling and
       language highlighting — e.g. CodeBlockLowlight — are the open parts.)
-- [ ] Lines starting with `>` open a quote paragraph emphasized with a vertical line.
+- [x] Lines starting with `>` open a quote paragraph emphasized with a vertical line.
       (TipTap Blockquote already parses `>`; the vertical-line emphasis styling is the
       open part.)
-- [ ] Markdown-style link support: `[title of link](url)` becomes a link while typing.
-- [ ] Text color control.
-- [ ] Text size control. (Both likely via TipTap TextStyle + Color/FontSize, with toolbar
+- [x] Markdown-style link support: `[title of link](url)` becomes a link while typing.
+- [x] Text color control.
+- [x] Text size control. (Both likely via TipTap TextStyle + Color/FontSize, with toolbar
       controls; keep the URL-scheme allowlist intact for links.)
 
 ### Grid mode (wall)
-- [ ] Emphasize the card title by giving it a transparent border.
-- [ ] Pan vertically/horizontally by left-click-dragging empty grid space. Panning is
+- [x] Emphasize the card title by giving it a transparent border.
+- [x] Pan vertically/horizontally by left-click-dragging empty grid space. Panning is
       clamped to (farthest note position + 1 viewport) in each direction.
-- [ ] Moving a note (left-click on note + drag) must not open the note editor. (CDK
+- [x] Moving a note (left-click on note + drag) must not open the note editor. (CDK
       suppresses the click after a real drag; verify the under-threshold micro-drag case
       and suppress open on any movement.)
-- [ ] Folders appear on the grid with the number of notes they contain. Double clicking 
+- [x] Folders appear on the grid with the number of notes they contain. Double clicking 
       a folder opens it. Opened folder are displayed in a window with a close button and
       a similar grid. 
+- [x] Opening a note still allows user to interact with the grid.
+- [x] Multiple notes can be opened at the same time.
 
 ### Admin panel
-- [ ] Temp password can be auto-generated in the create-user form.
-- [ ] Reset password for an existing user (admin sets/generates a new temp password —
+- [x] Temp password can be auto-generated in the create-user form.
+- [x] Reset password for an existing user (admin sets/generates a new temp password —
       complements the self-service change and the env break-glass).
 
 ---
