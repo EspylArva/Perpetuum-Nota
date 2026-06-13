@@ -369,8 +369,35 @@
     }
 
     @if (mode() === 'wall' && !inTrash()) {
-      <div class="wall-scroll">
-        <div class="wall-grid" #wallEl [style.height.px]="wallHeightPx()">
+      <!-- The scroll container is also the pan surface: a left-drag on empty
+           grid space pans; pointerdown on a card stops propagation so it won't
+           pan. setPointerCapture keeps a fast drag tracking. -->
+      <div class="wall-scroll" #wallScrollEl
+           [class.panning]="panning()"
+           (pointerdown)="onPanPointerDown($event)"
+           (pointermove)="onPanPointerMove($event)"
+           (pointerup)="onPanPointerUp($event)"
+           (pointercancel)="onPanPointerUp($event)">
+        <div class="wall-grid" #wallEl [style.height.px]="wallHeightPx()"
+             [style.transform]="'translate(' + panOffset().x + 'px,' + panOffset().y + 'px)'">
+
+          <!-- Root-level folders as cards (root, unfiltered view only). -->
+          @for (f of rootFolders(); track f.id) {
+            <article
+              class="folder-card"
+              [style.left.px]="(folderLayout().get(f.id)?.x ?? 0) * CELL"
+              [style.top.px]="(folderLayout().get(f.id)?.y ?? 0) * CELL"
+              (pointerdown)="$event.stopPropagation()"
+              (dblclick)="openFolderWindow(f.id)"
+              [matTooltip]="'Double-click to open ' + f.name"
+              matTooltipShowDelay="400"
+            >
+              <mat-icon class="folder-ico">folder</mat-icon>
+              <span class="folder-name">{{ f.name }}</span>
+              <span class="folder-count">{{ f.noteCount }}</span>
+            </article>
+          }
+
           @for (n of notes(); track n.id) {
             <article
               class="card"
@@ -380,18 +407,23 @@
               [cdkDragDisabled]="!n.isOwner"
               (cdkDragEnded)="onWallDragEnd(n, $event)"
               [style.left.px]="(wallLayout().get(n.id)?.x ?? 0) * CELL"
-              [style.top.px]="(wallLayout().get(n.id)?.y ?? 0) * CELL"
+              [style.top.px]="(noteOffsetCells() + (wallLayout().get(n.id)?.y ?? 0)) * CELL"
               [class.checked]="isSelected(n.id)"
               [class.foreign]="!n.isOwner"
               [matTooltip]="authorLine(n)"
               matTooltipShowDelay="400"
-              (click)="open(n.id)"
+              (pointerdown)="onCardPointerDown($event)"
+              (pointerup)="onCardPointerUp(n.id, $event)"
               (contextmenu)="openContextMenu(n, $event)"
             >
               <mat-checkbox class="card-check" [checked]="isSelected(n.id)"
-                            (click)="$event.stopPropagation()" (change)="toggleSelect(n.id)" />
+                            (click)="$event.stopPropagation()"
+                            (pointerdown)="$event.stopPropagation()"
+                            (pointerup)="$event.stopPropagation()"
+                            (change)="toggleSelect(n.id)" />
               @if (n.isOwner) {
                 <button matIconButton class="card-del" matTooltip="Move to trash"
+                        (pointerdown)="$event.stopPropagation()"
                         (click)="deleteOne(n.id); $event.stopPropagation()">
                   <mat-icon>delete</mat-icon>
                 </button>
@@ -419,96 +451,137 @@
               }
             </article>
           } @empty {
-            <p class="muted">{{ loading() ? 'Loading…' : (q() ? 'No notes match your search.' : 'No notes yet.') }}</p>
+            @if (rootFolders().length === 0) {
+              <p class="muted">{{ loading() ? 'Loading…' : (q() ? 'No notes match your search.' : 'No notes yet.') }}</p>
+            }
           }
         </div>
       </div>
 
-      @if (openId()) {
-        <div class="modal-backdrop" (click)="closeEditor()">
-          <div class="modal" (click)="$event.stopPropagation()">
-            <div class="modal-head">
-              <input class="title-input" [value]="openNote()?.title || ''" [disabled]="!canEditOpen()"
-                     (change)="rename(openId()!, $any($event.target).value)" placeholder="Untitled" />
-              @if (openNote()?.isOwner) {
-                <button matIconButton [class.pinned]="openNote()?.pinned"
-                        [matTooltip]="openNote()?.pinned ? 'Unpin' : 'Pin'" (click)="togglePin(openNote()!)">
-                  <mat-icon>push_pin</mat-icon>
-                </button>
-              }
-              <button matIconButton matTooltip="Duplicate" (click)="duplicate(openId()!)">
-                <mat-icon>content_copy</mat-icon>
+      <!-- Floating, NON-MODAL note windows: multiple can be open, the grid stays
+           interactive, each is draggable + focus-stacking. -->
+      @for (id of wallOpenIds(); track id; let i = $index) {
+        <app-note-window
+          [title]="noteById(id)?.title || ''"
+          [left]="windowLeft(i)" [top]="windowTop(i)"
+          [zIndex]="zOf(id)"
+          (raise)="raiseWindow(id)"
+          (close)="closeWindow(id)"
+        >
+          <div class="nw-head">
+            <input class="title-input" [value]="noteById(id)?.title || ''" [disabled]="!canEditNote(id)"
+                   (change)="rename(id, $any($event.target).value)" placeholder="Untitled" />
+            @if (noteById(id)?.isOwner) {
+              <button matIconButton [class.pinned]="noteById(id)?.pinned"
+                      [matTooltip]="noteById(id)?.pinned ? 'Unpin' : 'Pin'" (click)="togglePin(noteById(id)!)">
+                <mat-icon>push_pin</mat-icon>
               </button>
-              @if (openNote()?.isOwner) {
-                <button matButton="outlined" (click)="openShare(openId()!)">
-                  <mat-icon>share</mat-icon> Share
-                </button>
-              }
-              <button matIconButton matTooltip="Close" (click)="closeEditor()">
-                <mat-icon>close</mat-icon>
+            }
+            <button matIconButton matTooltip="Duplicate" (click)="duplicate(id)">
+              <mat-icon>content_copy</mat-icon>
+            </button>
+            @if (noteById(id)?.isOwner) {
+              <button matButton="outlined" (click)="openShare(id)">
+                <mat-icon>share</mat-icon> Share
               </button>
-            </div>
-            @if (openNote(); as on) {
-              <div class="pane-meta">{{ authorLine(on) }}</div>
-            }
-            @if (canEditOpen()) {
-              <div class="tag-editor">
-                <mat-chip-grid #chipGridModal aria-label="Tags">
-                  @for (t of openNote()!.tags; track t) {
-                    <mat-chip-row (removed)="removeTag(t)">
-                      {{ t }}
-                      <button matChipRemove aria-label="Remove tag"><mat-icon>cancel</mat-icon></button>
-                    </mat-chip-row>
-                  }
-                </mat-chip-grid>
-                <input #tagInputModalEl class="tag-input" placeholder="Add tag…"
-                       #triggerModal="matAutocompleteTrigger"
-                       [matChipInputFor]="chipGridModal" [matChipInputAddOnBlur]="false"
-                       [matAutocomplete]="tagAcModal"
-                       [value]="tagQuery()"
-                       (input)="tagQuery.set($any($event.target).value)"
-                       (matChipInputTokenEnd)="addTagFromChip($event, triggerModal)" />
-                <mat-autocomplete #tagAcModal (optionSelected)="addTagFromOption($event, tagInputModalEl)">
-                  @for (opt of tagOptions(); track opt) {
-                    <mat-option [value]="opt">{{ opt }}</mat-option>
-                  }
-                </mat-autocomplete>
-
-                <div class="due-control">
-                  <mat-icon class="due-ico">event</mat-icon>
-                  <input class="due-input" placeholder="Due date" aria-label="Due date" readonly
-                         [matDatepicker]="duePickerModal"
-                         [value]="dueAsDate(openNote()?.dueDate)"
-                         (dateChange)="setDue(openId()!, $event.value)"
-                         (click)="duePickerModal.open()" />
-                  <mat-datepicker #duePickerModal />
-                  <button matIconButton class="due-pick" matTooltip="Pick due date" (click)="duePickerModal.open()">
-                    <mat-icon>edit_calendar</mat-icon>
-                  </button>
-                  @if (openNote()?.dueDate) {
-                    <button matIconButton class="due-clear" matTooltip="Clear due date" (click)="setDue(openId()!, null)">
-                      <mat-icon>close</mat-icon>
-                    </button>
-                  }
-                </div>
-              </div>
-            }
-            @if (openNoteLinks().length > 0) {
-              <div class="links-bar" aria-label="Linked notes">
-                @for (lk of openNoteLinks(); track lk.id) {
-                  <a class="chip link-chip" [routerLink]="['/note', lk.id]"
-                     (click)="openLink(lk.id, $event)"
-                     [matTooltip]="'Open ' + (lk.title || 'Untitled')">
-                    <mat-icon class="link-ico">link</mat-icon>{{ lk.title || 'Untitled' }}
-                  </a>
-                }
-              </div>
-            }
-            @for (id of openIds(); track id) {
-              <app-note-editor [noteId]="id" [editable]="canEditOpen()" [exportName]="openNote()?.title || 'note'" />
             }
           </div>
-        </div>
+          @if (noteById(id); as on) {
+            <div class="pane-meta">{{ authorLine(on) }}</div>
+          }
+          @if (canEditNote(id)) {
+            <div class="tag-editor">
+              <mat-chip-grid #chipGridWin aria-label="Tags">
+                @for (t of noteById(id)!.tags; track t) {
+                  <mat-chip-row (removed)="removeTagOn(id, t)">
+                    {{ t }}
+                    <button matChipRemove aria-label="Remove tag"><mat-icon>cancel</mat-icon></button>
+                  </mat-chip-row>
+                }
+              </mat-chip-grid>
+              <input #tagInputWinEl class="tag-input" placeholder="Add tag…"
+                     #triggerWin="matAutocompleteTrigger"
+                     [matChipInputFor]="chipGridWin" [matChipInputAddOnBlur]="false"
+                     [matAutocomplete]="tagAcWin"
+                     (input)="tagQuery.set($any($event.target).value)"
+                     (matChipInputTokenEnd)="addTagOn(id, $event, triggerWin)" />
+              <mat-autocomplete #tagAcWin (optionSelected)="addTagOnFromOption(id, $event, tagInputWinEl)">
+                @for (opt of tagOptionsFor(id); track opt) {
+                  <mat-option [value]="opt">{{ opt }}</mat-option>
+                }
+              </mat-autocomplete>
+
+              <div class="due-control">
+                <mat-icon class="due-ico">event</mat-icon>
+                <input class="due-input" placeholder="Due date" aria-label="Due date" readonly
+                       [matDatepicker]="duePickerWin"
+                       [value]="dueAsDate(noteById(id)?.dueDate)"
+                       (dateChange)="setDue(id, $event.value)"
+                       (click)="duePickerWin.open()" />
+                <mat-datepicker #duePickerWin />
+                <button matIconButton class="due-pick" matTooltip="Pick due date" (click)="duePickerWin.open()">
+                  <mat-icon>edit_calendar</mat-icon>
+                </button>
+                @if (noteById(id)?.dueDate) {
+                  <button matIconButton class="due-clear" matTooltip="Clear due date" (click)="setDue(id, null)">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
+              </div>
+            </div>
+          }
+          @if (linksOfWindow(id).length > 0) {
+            <div class="links-bar" aria-label="Linked notes">
+              @for (lk of linksOfWindow(id); track lk.id) {
+                <a class="chip link-chip" [routerLink]="['/note', lk.id]"
+                   (click)="openLink(lk.id, $event)"
+                   [matTooltip]="'Open ' + (lk.title || 'Untitled')">
+                  <mat-icon class="link-ico">link</mat-icon>{{ lk.title || 'Untitled' }}
+                </a>
+              }
+            </div>
+          }
+          <app-note-editor [noteId]="id" [editable]="canEditNote(id)" [exportName]="noteById(id)?.title || 'note'" />
+        </app-note-window>
+      }
+
+      <!-- Floating folder windows: a mini-grid of the folder's notes + subfolders. -->
+      @for (fid of wallFolderIds(); track fid; let i = $index) {
+        <app-note-window
+          [title]="folderName(fid)"
+          [left]="windowLeft(wallOpenIds().length + i)" [top]="windowTop(wallOpenIds().length + i)"
+          [zIndex]="zOf(fid)"
+          (raise)="raiseWindow(fid)"
+          (close)="closeFolderWindow(fid)"
+        >
+          <div class="folder-window-grid">
+            @for (sf of subfolders(fid); track sf.id) {
+              <button type="button" class="mini folder-mini"
+                      (dblclick)="openFolderWindow(sf.id)"
+                      [matTooltip]="'Double-click to open ' + sf.name">
+                <mat-icon class="folder-ico">folder</mat-icon>
+                <span class="mini-title">{{ sf.name }}</span>
+                <span class="folder-count">{{ sf.noteCount }}</span>
+              </button>
+            }
+            @for (n of notesInFolder(fid); track n.id) {
+              <button type="button" class="mini note-mini"
+                      (click)="open(n.id)"
+                      (contextmenu)="openContextMenu(n, $event)"
+                      [matTooltip]="authorLine(n)" matTooltipShowDelay="400">
+                <span class="mini-title">
+                  @if (n.pinned) { <mat-icon class="pin-ico" inline>push_pin</mat-icon> }
+                  {{ n.title || 'Untitled' }}
+                </span>
+                <span class="mini-preview">{{ n.preview || 'Empty note' }}</span>
+              </button>
+            } @empty {
+              @if (subfolders(fid).length === 0) {
+                <p class="muted">This folder is empty.</p>
+              }
+            }
+          </div>
+        </app-note-window>
       }
     }
   </mat-sidenav-content>

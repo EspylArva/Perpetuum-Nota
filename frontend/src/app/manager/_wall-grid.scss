@@ -9,6 +9,11 @@ $card-w: 232px; // 6 cells minus the visual gutter
 .wall-scroll {
   flex: 1;
   overflow: auto;
+  position: relative;
+  /* Empty grid space invites a pan-drag. */
+  cursor: grab;
+
+  &.panning { cursor: grabbing; }
 }
 
 .wall-grid {
@@ -60,6 +65,14 @@ $card-w: 232px; // 6 cells minus the visual gutter
       padding-right: 4.2rem;
       display: flex; align-items: center; gap: 0.25rem;
       overflow-wrap: anywhere;
+
+      /* Title plate: a rounded, semi-transparent border so the title reads as a
+         distinct label. Theme-aware via color-mix on the inherited text color. */
+      .title-text {
+        border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+        border-radius: 6px;
+        padding: 2px 6px;
+      }
     }
     p {
       margin: 0;
@@ -77,5 +90,47 @@ $card-w: 232px; // 6 cells minus the visual gutter
       &:hover { opacity: 1; }
     }
     .badges { margin-top: 0.5rem; display: flex; gap: 0.3rem; flex-wrap: wrap; }
+  }
+
+  /* Folder cards: visually distinct from note cards — tinted container, a folder
+     icon, the name, and the live note count. Double-click opens a window. */
+  .folder-card {
+    position: absolute;
+    width: $card-w;
+    box-sizing: border-box;
+    height: $cell * 2 - 8px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0.85rem;
+    border-radius: 10px;
+    cursor: pointer;
+    user-select: none;
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+    border: 1px solid var(--mat-sys-outline-variant);
+    box-shadow: var(--mat-sys-level1);
+    transition: box-shadow 0.15s;
+
+    &:hover { box-shadow: var(--mat-sys-level3); }
+
+    .folder-ico {
+      flex: 0 0 auto;
+      font-size: 1.4rem; width: 1.4rem; height: 1.4rem;
+      color: var(--mat-sys-on-secondary-container);
+    }
+    .folder-name {
+      flex: 1; min-width: 0;
+      font-weight: 600; font-size: 0.9rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .folder-count {
+      flex: 0 0 auto;
+      min-width: 1.5rem; text-align: center;
+      font-size: 0.72rem; font-weight: 700;
+      padding: 0.1rem 0.4rem; border-radius: 999px;
+      background: var(--mat-sys-surface-container-lowest);
+      color: var(--mat-sys-on-surface-variant);
+    }
   }
 }

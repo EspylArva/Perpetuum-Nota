@@ -1,0 +1,65 @@
+:host {
+  /* The window positions itself; the host should not capture layout/space. */
+  display: contents;
+}
+
+.note-window {
+  position: absolute;
+  width: min(640px, calc(100% - 2rem));
+  height: min(560px, calc(100% - 2rem));
+  min-width: 320px;
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  background: var(--mat-sys-surface-container-lowest);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--mat-sys-level4);
+}
+
+.nw-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.4rem 0.35rem 0.85rem;
+  background: var(--mat-sys-surface-container-low);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+
+  &:active { cursor: grabbing; }
+
+  .nw-title {
+    flex: 1;
+    min-width: 0;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--mat-sys-on-surface);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.nw-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  /* Trivial resize affordance (no custom handle). */
+  resize: both;
+}
+
+/* Raised shadow while dragging the window. */
+.note-window.cdk-drag-dragging { box-shadow: var(--mat-sys-level5); }
+
+@media (max-width: 768px) {
+  .note-window {
+    width: calc(100% - 1rem);
+    height: calc(100% - 1rem);
+  }
+}

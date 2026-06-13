@@ -68,11 +68,14 @@ import {
 } from './due-date';
 import { timeAgo } from './time-ago';
 import { shouldOpenInApp } from './click-modifiers';
+import { movedBeyond, type Point } from './drag-threshold';
+import { clampPan } from './wall-pan';
 import { FolderTree } from './folder-tree';
 import type { FolderNode } from './folder-tree.util';
 import { openMoveToFolder } from './move-to-folder-dialog';
+import { NoteWindow } from './note-window';
 import { NoteEditor } from '../editor/note-editor';
-import { OpenNotesStore } from '../editor/open-notes.store';
+import { OpenNotesStore, type NoteLinkRef } from '../editor/open-notes.store';
 import { ChangePasswordDialog } from '../features/change-password/change-password-dialog';
 import { openConfirm } from '../shared-ui/confirm-dialog';
 import { openNameDialog } from '../shared-ui/name-dialog';
@@ -94,6 +97,7 @@ interface CellPos {
   selector: 'app-manager',
   imports: [
     NoteEditor,
+    NoteWindow,
     ShareDialog,
     ChangePasswordDialog,
     FolderTree,
@@ -209,12 +213,31 @@ export class Manager implements OnInit {
   // --- wall grid state ---
   private readonly wallEl =
     viewChild<ElementRef<HTMLDivElement>>('wallEl');
+  /** Scroll/viewport container — the pan starts on its empty background. */
+  private readonly wallScrollEl =
+    viewChild<ElementRef<HTMLDivElement>>('wallScrollEl');
   private readonly wallCols = signal(24);
   /** Measured card heights in grid cells (id → cells). */
   private readonly cardHeights = signal<ReadonlyMap<string, number>>(
     new Map(),
   );
   private wallResize?: ResizeObserver;
+
+  // --- wall floating windows (multiple open notes / folders) ---
+  /** Max concurrently-open windows (notes + folders) before we refuse more. */
+  private readonly WALL_WINDOW_CAP = 6;
+  /** Open note-window ids in WALL mode (LIST mode still uses `openId`). */
+  readonly wallOpenIds = signal<string[]>([]);
+  /** Open folder-window ids in WALL mode. */
+  readonly wallFolderIds = signal<string[]>([]);
+  /** Per-window z-index (id → z); raising a window bumps it above `topZ`. */
+  private readonly winZ = signal<ReadonlyMap<string, number>>(new Map());
+  /** Monotonic z-index counter; the next raised window gets topZ. */
+  private topZ = 60;
+  /** Notes inside each open folder window (folderId → its notes). */
+  readonly folderNotes = signal<ReadonlyMap<string, NoteSummaryDto[]>>(
+    new Map(),
+  );
 
   // single-item array so @for can recreate the editor when the open note changes
   readonly openIds = computed(() => {
@@ -339,11 +362,100 @@ export class Manager implements OnInit {
 
   readonly wallHeightPx = computed(() => {
     const heights = this.cardHeights();
+    const offset = this.noteOffsetCells();
     let maxRow = 10;
     for (const [id, pos] of this.wallLayout()) {
-      maxRow = Math.max(maxRow, pos.y + (heights.get(id) ?? 3));
+      maxRow = Math.max(maxRow, offset + pos.y + (heights.get(id) ?? 3));
     }
     return (maxRow + 6) * WALL_CELL;
+  });
+
+  // --- wall panning ---
+  /** Pan offset applied as translate() to the positioned `.wall-grid` layer. */
+  readonly panOffset = signal<{ x: number; y: number }>({ x: 0, y: 0 });
+  readonly panning = signal(false);
+  /** Pointer + offset captured at pan start. */
+  private panStart: { px: number; py: number; ox: number; oy: number } | null =
+    null;
+
+  /**
+   * Pixel extent of the placed content (farthest card right/bottom edge). Drives
+   * the pan clamp so you can pan content-extent + one viewport, never further.
+   */
+  private readonly wallContentSize = computed<{ w: number; h: number }>(() => {
+    const heights = this.cardHeights();
+    const offset = this.noteOffsetCells();
+    let w = 0;
+    let h = 0;
+    for (const [id, pos] of this.wallLayout()) {
+      w = Math.max(w, pos.x * WALL_CELL + WALL_CARD_CELLS * WALL_CELL);
+      h = Math.max(
+        h,
+        (offset + pos.y) * WALL_CELL + (heights.get(id) ?? 3) * WALL_CELL,
+      );
+    }
+    // Folder band may be wider/taller than the notes when notes are sparse.
+    for (const [, pos] of this.folderLayout()) {
+      w = Math.max(w, pos.x * WALL_CELL + WALL_CARD_CELLS * WALL_CELL);
+      h = Math.max(h, (pos.y + this.FOLDER_CARD_CELLS) * WALL_CELL);
+    }
+    return { w, h };
+  });
+
+  /** Whether the wall is showing the root, unfiltered view (no folder/tag/search). */
+  readonly isRootWallView = computed(
+    () =>
+      this.filter() === 'all' &&
+      !this.activeFolderId() &&
+      !this.activeTag() &&
+      !this.q() &&
+      !this.hasDueFilter(),
+  );
+
+  /** Root-level folders, shown as cards only in the root unfiltered wall view. */
+  readonly rootFolders = computed(() =>
+    this.isRootWallView()
+      ? this.folders().filter((f) => f.parentId === null)
+      : [],
+  );
+
+  /** Folder card footprint height in cells (short cards in a top band). */
+  private readonly FOLDER_CARD_CELLS = 2;
+
+  /**
+   * Grid coords for folder cards: a band of short cards starting at the top-left,
+   * flowing left-to-right. Notes are pushed below this band (see noteOffsetCells)
+   * so the two never overlap.
+   */
+  readonly folderLayout = computed<ReadonlyMap<string, CellPos>>(() => {
+    const out = new Map<string, CellPos>();
+    const folders = this.rootFolders();
+    if (folders.length === 0) return out;
+    const cols = Math.max(WALL_CARD_CELLS, this.wallCols());
+    const perRow = Math.max(1, Math.floor(cols / WALL_CARD_CELLS));
+    folders.forEach((f, i) => {
+      const col = i % perRow;
+      const row = Math.floor(i / perRow);
+      out.set(f.id, {
+        x: col * WALL_CARD_CELLS,
+        y: row * this.FOLDER_CARD_CELLS,
+      });
+    });
+    return out;
+  });
+
+  /**
+   * Cells the notes are shifted DOWN by, to clear the folder band at the top.
+   * Zero when no folder cards are shown (filtered view, or no root folders).
+   */
+  readonly noteOffsetCells = computed(() => {
+    const folders = this.rootFolders();
+    if (folders.length === 0) return 0;
+    const cols = Math.max(WALL_CARD_CELLS, this.wallCols());
+    const perRow = Math.max(1, Math.floor(cols / WALL_CARD_CELLS));
+    const rows = Math.ceil(folders.length / perRow);
+    // +1 gutter row between the folder band and the notes.
+    return rows * this.FOLDER_CARD_CELLS + 1;
   });
 
   constructor() {
@@ -448,6 +560,7 @@ export class Manager implements OnInit {
     this.dueStart.set(null);
     this.dueEnd.set(null);
     this.openId.set(null);
+    this.closeAllWallWindows();
     this.clearSelection();
     this.sidebarOpen.set(false);
     this.refresh();
@@ -460,6 +573,7 @@ export class Manager implements OnInit {
     this.dueStart.set(null);
     this.dueEnd.set(null);
     this.openId.set(null);
+    this.closeAllWallWindows();
     this.clearSelection();
     this.sidebarOpen.set(false);
     this.refresh();
@@ -475,6 +589,7 @@ export class Manager implements OnInit {
     this.dueStart.set(null);
     this.dueEnd.set(null);
     this.openId.set(null);
+    this.closeAllWallWindows();
     this.clearSelection();
     this.sidebarOpen.set(false);
     this.refresh();
@@ -590,10 +705,22 @@ export class Manager implements OnInit {
   }
 
   setView(mode: 'list' | 'wall'): void {
-    // Close any open editor so it doesn't reappear (as a pane or modal) in the
-    // other view after switching.
+    // Close any open editor / windows so nothing reappears (as a pane or a
+    // floating window) in the other view after switching.
     this.openId.set(null);
+    this.closeAllWallWindows();
     this.viewModeStore.set(mode);
+  }
+
+  /** Flushes + closes every floating wall window (note and folder). */
+  private closeAllWallWindows(): void {
+    for (const id of this.wallOpenIds()) this.openStore.flush(id);
+    this.wallOpenIds.set([]);
+    this.wallFolderIds.set([]);
+    this.folderNotes.set(new Map());
+    this.winZ.set(new Map());
+    // Reset the pan so a stale offset doesn't leave the new view scrolled away.
+    this.panOffset.set({ x: 0, y: 0 });
   }
 
   /** List view: persists the new explicit order after a row drag. */
@@ -667,7 +794,8 @@ export class Manager implements OnInit {
   create(): void {
     this.api.create('Untitled note').subscribe((n) => {
       this.notes.update((list) => [n, ...list]);
-      this.openId.set(n.id);
+      // Opens the right-hand pane (LIST) or a floating window (WALL).
+      this.open(n.id);
     });
   }
 
@@ -684,7 +812,13 @@ export class Manager implements OnInit {
     } else {
       this.openStore.open(id);
     }
-    this.openId.set(id);
+    // WALL mode spawns a floating, non-modal window (multiple can be open at
+    // once); LIST mode keeps the single right-hand pane.
+    if (this.mode() === 'wall' && !this.inTrash()) {
+      this.openWallWindow(id);
+    } else {
+      this.openId.set(id);
+    }
     const note = this.notes().find((n) => n.id === id);
     if (note && !note.seen) {
       // Reflect the now-consumed share badge locally.
@@ -693,6 +827,234 @@ export class Manager implements OnInit {
       );
       setTimeout(() => this.refreshBadge(), 800);
     }
+  }
+
+  // --- wall floating windows ---
+
+  /**
+   * Adds a note window in WALL mode. If already open, just raises it. Capped at
+   * WALL_WINDOW_CAP total windows (notes + folders) — over the cap we snackbar
+   * and refuse rather than silently dropping the user's existing windows.
+   */
+  private openWallWindow(id: string): void {
+    if (this.wallOpenIds().includes(id)) {
+      this.raiseWindow(id);
+      return;
+    }
+    if (this.totalWindows() >= this.WALL_WINDOW_CAP) {
+      this.snack.open('You can open up to 6 windows at once.', 'Dismiss', {
+        duration: 3000,
+      });
+      return;
+    }
+    this.wallOpenIds.update((ids) => [...ids, id]);
+    this.raiseWindow(id);
+  }
+
+  /** Count of open windows (notes + folders) for the cap. */
+  private totalWindows(): number {
+    return this.wallOpenIds().length + this.wallFolderIds().length;
+  }
+
+  /** Flushes pending autosave then removes a note window. */
+  closeWindow(id: string): void {
+    this.openStore.flush(id);
+    this.wallOpenIds.update((ids) => ids.filter((x) => x !== id));
+    this.clearWinZ(id);
+    // Keep the deep-link / single openId in sync so reopening behaves.
+    if (this.openId() === id) this.openId.set(null);
+    this.refreshTags();
+  }
+
+  /** Brings a window to the front by assigning it the next z-index. */
+  raiseWindow(id: string): void {
+    const next = ++this.topZ;
+    this.winZ.update((m) => {
+      const out = new Map(m);
+      out.set(id, next);
+      return out;
+    });
+  }
+
+  private clearWinZ(id: string): void {
+    this.winZ.update((m) => {
+      if (!m.has(id)) return m;
+      const out = new Map(m);
+      out.delete(id);
+      return out;
+    });
+  }
+
+  /** Z-index for a window; unraised windows sit at the base layer. */
+  zOf(id: string): number {
+    return this.winZ().get(id) ?? 60;
+  }
+
+  /**
+   * Cascade position for the Nth window so they don't perfectly overlap. Seeded
+   * from the window's index in the open list — deterministic, no Math.random.
+   */
+  windowLeft(index: number): number {
+    return 40 + (index % 8) * 30;
+  }
+  windowTop(index: number): number {
+    return 40 + (index % 8) * 30;
+  }
+
+  /** Per-window note lookup (notes list first, then any open folder window). */
+  noteById(id: string): NoteSummaryDto | undefined {
+    const hit = this.notes().find((n) => n.id === id);
+    if (hit) return hit;
+    for (const list of this.folderNotes().values()) {
+      const f = list.find((n) => n.id === id);
+      if (f) return f;
+    }
+    return undefined;
+  }
+
+  /** Whether a specific note window's content may be edited. */
+  canEditNote(id: string): boolean {
+    const n = this.noteById(id);
+    return !!n && n.isOwner && !n.deletedAt;
+  }
+
+  /** Outgoing wikilinks for a specific open note window. */
+  linksOfWindow(id: string): NoteLinkRef[] {
+    return this.openStore.linksOf(id)();
+  }
+
+  // --- folder windows ---
+
+  /** Note count badge for a folder card. */
+  folderCount(id: string): number {
+    return this.folders().find((f) => f.id === id)?.noteCount ?? 0;
+  }
+
+  folderName(id: string): string {
+    return this.folders().find((f) => f.id === id)?.name ?? 'Folder';
+  }
+
+  /** Subfolders of an open folder window (shown as folder cards inside it). */
+  subfolders(folderId: string): FolderDto[] {
+    return this.folders().filter((f) => f.parentId === folderId);
+  }
+
+  /** Double-click a folder card → open its floating mini-grid window. */
+  openFolderWindow(id: string): void {
+    if (this.wallFolderIds().includes(id)) {
+      this.raiseWindow(id);
+      return;
+    }
+    if (this.totalWindows() >= this.WALL_WINDOW_CAP) {
+      this.snack.open('You can open up to 6 windows at once.', 'Dismiss', {
+        duration: 3000,
+      });
+      return;
+    }
+    this.wallFolderIds.update((ids) => [...ids, id]);
+    this.raiseWindow(id);
+    // Fetch the folder's notes for the mini-grid.
+    this.api.list({ filter: 'all', folderId: id }).subscribe((notes) => {
+      this.folderNotes.update((m) => {
+        const out = new Map(m);
+        out.set(id, notes);
+        return out;
+      });
+    });
+  }
+
+  closeFolderWindow(id: string): void {
+    this.wallFolderIds.update((ids) => ids.filter((x) => x !== id));
+    this.folderNotes.update((m) => {
+      if (!m.has(id)) return m;
+      const out = new Map(m);
+      out.delete(id);
+      return out;
+    });
+    this.clearWinZ(id);
+  }
+
+  /** Notes inside an open folder window. */
+  notesInFolder(id: string): NoteSummaryDto[] {
+    return this.folderNotes().get(id) ?? [];
+  }
+
+  // --- wall panning (left-drag on empty grid background) ---
+
+  /**
+   * Begins panning when a pointerdown lands on the EMPTY grid background (not on
+   * a card / folder card / window). Records the start pointer + offset and
+   * captures the pointer so a fast drag that leaves the element still tracks.
+   */
+  onPanPointerDown(event: PointerEvent): void {
+    if (event.button !== 0) return; // left button only
+    // Only start from empty space: ignore clicks that originate on a card.
+    const target = event.target as HTMLElement;
+    if (target.closest('.card, .folder-card, .note-window')) return;
+    this.panStart = {
+      px: event.clientX,
+      py: event.clientY,
+      ox: this.panOffset().x,
+      oy: this.panOffset().y,
+    };
+    this.panning.set(true);
+    (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+  }
+
+  onPanPointerMove(event: PointerEvent): void {
+    if (!this.panStart) return;
+    const dx = event.clientX - this.panStart.px;
+    const dy = event.clientY - this.panStart.py;
+    const scroll = this.wallScrollEl()?.nativeElement;
+    const viewport = {
+      w: scroll?.clientWidth ?? 0,
+      h: scroll?.clientHeight ?? 0,
+    };
+    this.panOffset.set(
+      clampPan(
+        { x: this.panStart.ox + dx, y: this.panStart.oy + dy },
+        this.wallContentSize(),
+        viewport,
+      ),
+    );
+  }
+
+  onPanPointerUp(event: PointerEvent): void {
+    if (!this.panStart) return;
+    this.panStart = null;
+    this.panning.set(false);
+    (event.currentTarget as HTMLElement).releasePointerCapture?.(
+      event.pointerId,
+    );
+  }
+
+  // --- wall card click-vs-drag suppression ---
+
+  /** Pointerdown coords per card, to discriminate a click from a micro-drag. */
+  private cardDownAt: Point | null = null;
+
+  onCardPointerDown(event: PointerEvent): void {
+    // Stop the pan handler from also reacting to a card press.
+    event.stopPropagation();
+    if (event.button !== 0) {
+      this.cardDownAt = null;
+      return;
+    }
+    this.cardDownAt = { x: event.clientX, y: event.clientY };
+  }
+
+  /**
+   * Opens the note only on a genuine click: a plain left interaction whose
+   * pointer barely moved. Any movement beyond ~3px (even a CDK sub-threshold
+   * micro-drag) suppresses the open so dragging a card never opens the editor.
+   */
+  onCardPointerUp(id: string, event: PointerEvent): void {
+    const down = this.cardDownAt;
+    this.cardDownAt = null;
+    if (!down || event.button !== 0) return;
+    if (!shouldOpenInApp(event)) return;
+    if (movedBeyond(down, { x: event.clientX, y: event.clientY })) return;
+    this.open(id);
   }
 
   /**
@@ -770,7 +1132,8 @@ export class Manager implements OnInit {
       // The copy is always owned by me; jump to it where it's visible.
       if (this.inTrash() || this.filter() === 'shared') this.setFilter('mine');
       else this.refresh();
-      this.openId.set(copy.id);
+      // LIST → pane; WALL → floating window.
+      this.open(copy.id);
       this.refreshTags();
     });
   }
@@ -858,6 +1221,10 @@ export class Manager implements OnInit {
     const gone = new Set(ids);
     this.notes.update((list) => list.filter((n) => !gone.has(n.id)));
     if (this.openId() && gone.has(this.openId()!)) this.openId.set(null);
+    // Close any floating wall windows for deleted notes.
+    if (this.wallOpenIds().some((id) => gone.has(id))) {
+      this.wallOpenIds.update((list) => list.filter((id) => !gone.has(id)));
+    }
     this.selected.update((set) => {
       const next = new Set(set);
       ids.forEach((id) => next.delete(id));
@@ -909,6 +1276,56 @@ export class Manager implements OnInit {
       );
       this.refreshTags();
     });
+  }
+
+  // --- tags scoped to a specific WALL window (multiple open notes) ---
+
+  /** Autocomplete options for a window: all tags minus that note's tags. */
+  tagOptionsFor(id: string): string[] {
+    return filterTagOptions(
+      this.tags(),
+      this.noteById(id)?.tags ?? [],
+      this.tagQuery(),
+    );
+  }
+
+  addTagOn(
+    id: string,
+    event: MatChipInputEvent,
+    trigger: MatAutocompleteTrigger,
+  ): void {
+    if (trigger.activeOption) {
+      event.chipInput.clear();
+      return;
+    }
+    const note = this.noteById(id);
+    const name = event.value.trim();
+    event.chipInput.clear();
+    this.tagQuery.set('');
+    if (!note || !name) return;
+    this.saveTags(id, [...note.tags, name]);
+  }
+
+  addTagOnFromOption(
+    id: string,
+    event: MatAutocompleteSelectedEvent,
+    inputEl: HTMLInputElement,
+  ): void {
+    const note = this.noteById(id);
+    const name = event.option.viewValue.trim();
+    inputEl.value = '';
+    this.tagQuery.set('');
+    if (!note || !name) return;
+    this.saveTags(id, [...note.tags, name]);
+  }
+
+  removeTagOn(id: string, name: string): void {
+    const note = this.noteById(id);
+    if (!note) return;
+    this.saveTags(
+      id,
+      note.tags.filter((t) => t !== name),
+    );
   }
 
   // --- due date on the open note ---
