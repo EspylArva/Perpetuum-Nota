@@ -54,4 +54,8 @@ describe('timeAgo', () => {
   it('a future timestamp clamps to "just now" (never negative)', () => {
     expect(timeAgo(new Date(NOW.getTime() + 5 * MIN), NOW)).toBe('just now');
   });
+
+  it('returns an empty string for an unparseable date', () => {
+    expect(timeAgo('not-a-date', NOW)).toBe('');
+  });
 });

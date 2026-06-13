@@ -23,6 +23,7 @@ function toDate(value: Date | string): Date {
 
 export function timeAgo(value: Date | string, now: Date = new Date()): string {
   const then = toDate(value);
+  if (Number.isNaN(then.getTime())) return '';
   const diff = now.getTime() - then.getTime();
 
   if (diff < MIN) return 'just now';
