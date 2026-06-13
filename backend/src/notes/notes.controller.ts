@@ -38,6 +38,13 @@ function normalizeSort(value?: string): NoteSort | undefined {
     : undefined; // default = explicit position order
 }
 
+/** Parses an ISO datetime query param; invalid/empty values are ignored. */
+function parseDate(value?: string): Date | undefined {
+  if (!value) return undefined;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
 // Static routes are declared before ':id' routes so they aren't captured as ids.
 @Controller('notes')
 export class NotesController {
@@ -58,12 +65,16 @@ export class NotesController {
     @Query('q') q?: string,
     @Query('tag') tag?: string,
     @Query('sort') sort?: string,
+    @Query('dueAfter') dueAfter?: string,
+    @Query('dueBefore') dueBefore?: string,
   ) {
     return this.notes.listViewable(user.id, {
       filter: normalizeFilter(filter),
       q,
       tag,
       sort: normalizeSort(sort),
+      dueAfter: parseDate(dueAfter),
+      dueBefore: parseDate(dueBefore),
     });
   }
 

@@ -44,6 +44,8 @@ export interface NoteSummaryDto {
   wallY: number | null;
   // non-null = in trash (ISO timestamp of the soft delete)
   deletedAt: string | null;
+  // optional due date (ISO timestamp); null = no due date
+  dueDate: string | null;
   updatedAt: string;
   contentUpdatedAt: string;
   // short plain-text preview for cards / list rows
@@ -67,6 +69,8 @@ export interface UpdateNoteDto {
   pinned?: boolean;
   wallX?: number;
   wallY?: number;
+  // ISO timestamp to set the due date, or null to clear it
+  dueDate?: string | null;
 }
 
 export interface UpdateNoteContentDto {

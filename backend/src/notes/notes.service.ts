@@ -26,6 +26,10 @@ export interface ListOptions {
   q?: string;
   tag?: string;
   sort?: NoteSort;
+  // Inclusive due-date window (plain timestamp comparison; the client computes
+  // local-day bounds). Notes with a null dueDate are excluded when either is set.
+  dueAfter?: Date;
+  dueBefore?: Date;
 }
 
 export interface NoteSummary {
@@ -39,6 +43,7 @@ export interface NoteSummary {
   wallX: number | null;
   wallY: number | null;
   deletedAt: Date | null;
+  dueDate: Date | null;
   updatedAt: Date;
   contentUpdatedAt: Date;
   preview: string;
@@ -83,7 +88,7 @@ export class NotesService {
     userId: string,
     opts: ListOptions,
   ): Promise<NoteSummary[]> {
-    const { filter, q, tag } = opts;
+    const { filter, q, tag, dueAfter, dueBefore } = opts;
 
     if (filter === 'trash') {
       // Trash is strictly the viewer's own notes; shared/public notes in
@@ -122,6 +127,18 @@ export class NotesService {
     if (q && q.trim()) {
       const ids = await this.searchIds(q.trim());
       and.push({ id: { in: ids } });
+    }
+
+    // Due-date window — inclusive bounds via gte/lte. The {not:null} clause is
+    // implied by gte/lte (a NULL dueDate never satisfies a comparison), so
+    // null-dueDate notes drop out whenever either bound is present.
+    if (dueAfter || dueBefore) {
+      and.push({
+        dueDate: {
+          ...(dueAfter ? { gte: dueAfter } : {}),
+          ...(dueBefore ? { lte: dueBefore } : {}),
+        },
+      });
     }
 
     const notes = await this.prisma.note.findMany({
@@ -234,6 +251,10 @@ export class NotesService {
         ...(dto.pinned !== undefined ? { pinned: dto.pinned } : {}),
         ...(dto.wallX !== undefined ? { wallX: dto.wallX } : {}),
         ...(dto.wallY !== undefined ? { wallY: dto.wallY } : {}),
+        // null clears the column; an ISO string sets it.
+        ...(dto.dueDate !== undefined
+          ? { dueDate: dto.dueDate === null ? null : new Date(dto.dueDate) }
+          : {}),
       },
       include: this.metaInclude(userId),
     });
@@ -485,6 +506,7 @@ export class NotesService {
       wallX: note.wallX,
       wallY: note.wallY,
       deletedAt: note.deletedAt,
+      dueDate: note.dueDate,
       updatedAt: note.updatedAt,
       contentUpdatedAt: note.contentUpdatedAt,
       preview: previewFromText(note.contentText),

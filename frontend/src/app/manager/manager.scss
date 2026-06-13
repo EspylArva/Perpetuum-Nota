@@ -48,6 +48,29 @@
     align-self: center;
   }
 
+  /* ---- sidebar calendar ---- */
+  .cal-section { margin-top: 0.6rem; }
+  .cal-wrap {
+    /* mat-calendar sizes off its width; shrink to fit the narrow sidebar. */
+    font-size: 0.8rem;
+    ::ng-deep mat-calendar { width: 100%; }
+
+    /* Day with ≥1 due note: a small dot under the date number. dateClass adds
+       `.has-due` on the cell; ::ng-deep is needed to reach the calendar's
+       encapsulated cell DOM. */
+    ::ng-deep .has-due .mat-calendar-body-cell-content {
+      position: relative;
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: 2px; left: 50%;
+        transform: translateX(-50%);
+        width: 4px; height: 4px; border-radius: 50%;
+        background: var(--mat-sys-primary);
+      }
+    }
+  }
+
   /* ---- collapsed desktop icon-rail ---- */
   &.sidebar--collapsed {
     width: 56px;
@@ -56,6 +79,7 @@
     .new-note span,
     .tags-head,
     .tag-list,
+    .cal-section,
     [matListItemTitle],
     [matListItemMeta] {
       display: none;
@@ -103,6 +127,26 @@
     --mat-button-filled-label-text-color: var(--mat-sys-on-error);
   }
   .trash-note { font-size: 0.82rem; color: var(--mat-sys-on-surface-variant); }
+}
+
+/* Active due-date filter shown as a removable chip above the notes list. */
+.filter-bar {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container-lowest);
+}
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  font-size: 0.78rem; font-weight: 600;
+  padding: 0.1rem 0.25rem 0.1rem 0.6rem; border-radius: 999px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+  mat-icon { font-size: 1rem; width: 1rem; height: 1rem; }
+  .filter-chip-x {
+    width: 26px; height: 26px; line-height: 26px;
+    mat-icon { font-size: 1rem; width: 1rem; height: 1rem; }
+  }
 }
 
 .muted, .empty { color: var(--mat-sys-on-surface-variant); padding: 1.5rem; }
@@ -213,6 +257,51 @@
   &.pub { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
   &.shared { background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); }
   &.new { background: var(--mat-sys-error); color: var(--mat-sys-on-error); }
+}
+
+/* ---- due date ---- */
+/* Passed → struck-through, muted title (drives off dueState). */
+.title-text.due-passed {
+  text-decoration: line-through;
+  color: var(--mat-sys-on-surface-variant);
+}
+/* Relative-due chip on rows + cards. Neutral by default; amber when nearing
+   (within 48h), muted when passed. Material tokens keep both themes legible. */
+.due-chip {
+  display: inline-flex; align-items: center; gap: 0.15rem;
+  font-size: 0.66rem; font-weight: 700;
+  padding: 0.08rem 0.45rem; border-radius: 999px;
+  background: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-on-surface-variant);
+  white-space: nowrap;
+  mat-icon { font-size: 0.85rem; width: 0.85rem; height: 0.85rem; }
+
+  &.nearing {
+    /* amber/warn that reads in light + dark */
+    background: color-mix(in srgb, #ffb300 28%, var(--mat-sys-surface-container));
+    color: var(--mat-sys-on-surface);
+  }
+  &.passed {
+    background: color-mix(in srgb, var(--mat-sys-error) 16%, var(--mat-sys-surface-container));
+    color: var(--mat-sys-error);
+  }
+}
+
+/* Due-date control inside the note metadata (tag) editor. */
+.due-control {
+  display: inline-flex; align-items: center; gap: 0.1rem;
+  flex: 0 0 auto;
+  padding-left: 0.4rem;
+  border-left: 1px solid var(--mat-sys-outline-variant);
+
+  .due-ico { font-size: 1.05rem; width: 1.05rem; height: 1.05rem; color: var(--mat-sys-on-surface-variant); }
+  .due-input {
+    width: 110px; border: none; background: transparent; cursor: pointer;
+    font-size: 0.82rem; color: var(--mat-sys-on-surface);
+    outline: none; padding: 0.35rem 0.2rem;
+    &::placeholder { color: var(--mat-sys-on-surface-variant); }
+  }
+  .due-pick, .due-clear { opacity: 0.55; &:hover { opacity: 1; } }
 }
 
 /* ---- editor modal (wall view) ---- */

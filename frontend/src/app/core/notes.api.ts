@@ -16,6 +16,9 @@ export interface ListQuery {
   q?: string;
   tag?: string;
   sort?: NoteSort;
+  // inclusive due-date window as ISO strings (client computes local-day bounds)
+  dueAfter?: string;
+  dueBefore?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -29,6 +32,8 @@ export class NotesApi {
     if (query.sort && query.sort !== 'position') {
       params = params.set('sort', query.sort);
     }
+    if (query.dueAfter) params = params.set('dueAfter', query.dueAfter);
+    if (query.dueBefore) params = params.set('dueBefore', query.dueBefore);
     return this.http.get<NoteSummaryDto[]>('/api/notes', { params });
   }
 
@@ -57,7 +62,14 @@ export class NotesApi {
 
   updateMeta(
     id: string,
-    patch: { title?: string; pinned?: boolean; wallX?: number; wallY?: number },
+    patch: {
+      title?: string;
+      pinned?: boolean;
+      wallX?: number;
+      wallY?: number;
+      // ISO string sets the due date; null clears it
+      dueDate?: string | null;
+    },
   ): Observable<NoteSummaryDto> {
     return this.http.patch<NoteSummaryDto>(`/api/notes/${id}`, patch);
   }

@@ -85,6 +85,19 @@
         </a>
       </mat-nav-list>
     }
+
+    <!-- Sidebar calendar: desktop only, hidden in the collapsed rail. Marks days
+         with a due note (derived from the loaded notes list) and filters by day
+         or, with Shift+Click, by a [min,max] range. -->
+    <div class="cal-section">
+      <div class="tags-head">Calendar</div>
+      <div class="cal-wrap" (mousedown)="onCalendarMouseDown($event)">
+        <mat-calendar
+          [selected]="dueSelected"
+          [dateClass]="dueDateClass"
+          (selectedChange)="onCalendarSelect($event)" />
+      </div>
+    </div>
   </mat-sidenav>
 
   <mat-sidenav-content class="content">
@@ -128,6 +141,18 @@
       }
     </div>
 
+    @if (hasDueFilter()) {
+      <div class="filter-bar">
+        <span class="filter-chip">
+          <mat-icon inline>event</mat-icon>{{ dueFilterLabel() }}
+          <button matIconButton class="filter-chip-x" aria-label="Clear due-date filter"
+                  matTooltip="Clear due-date filter" (click)="clearDueFilter()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </span>
+      </div>
+    }
+
     @if (mode() === 'list' || inTrash()) {
       <div class="list-layout" [class.split]="openId()">
         <aside class="rows" cdkDropList (cdkDropListDropped)="drop($event)">
@@ -141,10 +166,16 @@
               <div class="row-main" (click)="open(n.id)">
                 <div class="row-title">
                   @if (n.pinned) { <mat-icon class="pin-ico" inline>push_pin</mat-icon> }
-                  {{ n.title || 'Untitled' }}
+                  <span class="title-text" [class.due-passed]="n.dueDate && dueState(n.dueDate) === 'passed'">{{ n.title || 'Untitled' }}</span>
                   @if (!n.seen) { <span class="badge new">New</span> }
                   @if (n.visibility === 'PUBLIC') { <span class="badge pub">Public</span> }
                   @if (!n.isOwner) { <span class="badge shared">Shared</span> }
+                  @if (n.dueDate) {
+                    <span class="due-chip" [class.passed]="dueState(n.dueDate) === 'passed'"
+                          [class.nearing]="dueState(n.dueDate) === 'nearing'">
+                      <mat-icon inline>event</mat-icon>{{ dueLabel(n.dueDate) }}
+                    </span>
+                  }
                 </div>
                 <div class="row-preview">{{ n.preview || 'Empty note' }}</div>
                 @if (n.tags.length > 0) {
@@ -235,6 +266,24 @@
                     <mat-option [value]="opt">{{ opt }}</mat-option>
                   }
                 </mat-autocomplete>
+
+                <div class="due-control">
+                  <mat-icon class="due-ico">event</mat-icon>
+                  <input class="due-input" placeholder="Due date" readonly
+                         [matDatepicker]="duePicker"
+                         [value]="dueAsDate(openNote()?.dueDate)"
+                         (dateChange)="setDue(id, $event.value)"
+                         (click)="duePicker.open()" />
+                  <mat-datepicker #duePicker />
+                  <button matIconButton class="due-pick" matTooltip="Pick due date" (click)="duePicker.open()">
+                    <mat-icon>edit_calendar</mat-icon>
+                  </button>
+                  @if (openNote()?.dueDate) {
+                    <button matIconButton class="due-clear" matTooltip="Clear due date" (click)="setDue(id, null)">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
+                </div>
               </div>
             }
             <app-note-editor [noteId]="id" [editable]="canEditOpen()" [exportName]="openNote()?.title || 'note'" />
@@ -272,9 +321,17 @@
               }
               <h3>
                 @if (n.pinned) { <mat-icon class="pin-ico" inline>push_pin</mat-icon> }
-                {{ n.title || 'Untitled' }}
+                <span class="title-text" [class.due-passed]="n.dueDate && dueState(n.dueDate) === 'passed'">{{ n.title || 'Untitled' }}</span>
               </h3>
               <p>{{ n.preview || 'Empty note' }}</p>
+              @if (n.dueDate) {
+                <div class="badges">
+                  <span class="due-chip" [class.passed]="dueState(n.dueDate) === 'passed'"
+                        [class.nearing]="dueState(n.dueDate) === 'nearing'">
+                    <mat-icon inline>event</mat-icon>{{ dueLabel(n.dueDate) }}
+                  </span>
+                </div>
+              }
               @if (n.tags.length > 0 || n.visibility === 'PUBLIC' || !n.isOwner || !n.seen) {
                 <div class="badges">
                   @if (!n.seen) { <span class="badge new">New</span> }
@@ -336,6 +393,24 @@
                     <mat-option [value]="opt">{{ opt }}</mat-option>
                   }
                 </mat-autocomplete>
+
+                <div class="due-control">
+                  <mat-icon class="due-ico">event</mat-icon>
+                  <input class="due-input" placeholder="Due date" readonly
+                         [matDatepicker]="duePickerModal"
+                         [value]="dueAsDate(openNote()?.dueDate)"
+                         (dateChange)="setDue(openId()!, $event.value)"
+                         (click)="duePickerModal.open()" />
+                  <mat-datepicker #duePickerModal />
+                  <button matIconButton class="due-pick" matTooltip="Pick due date" (click)="duePickerModal.open()">
+                    <mat-icon>edit_calendar</mat-icon>
+                  </button>
+                  @if (openNote()?.dueDate) {
+                    <button matIconButton class="due-clear" matTooltip="Clear due date" (click)="setDue(openId()!, null)">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  }
+                </div>
               </div>
             }
             @for (id of openIds(); track id) {

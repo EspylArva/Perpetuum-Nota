@@ -25,6 +25,11 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatAutocompleteModule, MatAutocompleteSelectedEvent, MatAutocompleteTrigger } from '@angular/material/autocomplete';
 import { MatChipInputEvent, MatChipsModule } from '@angular/material/chips';
+import { provideNativeDateAdapter } from '@angular/material/core';
+import {
+  MatCalendarCellClassFunction,
+  MatDatepickerModule,
+} from '@angular/material/datepicker';
 import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -49,6 +54,13 @@ import { ThemeStore } from '../core/theme.store';
 import { SidenavStore } from '../core/sidenav.store';
 import { ViewModeStore } from '../core/view-mode.store';
 import { filterTagOptions } from './tag-filter';
+import {
+  dueLabel,
+  dueState,
+  endOfDay,
+  sameDay,
+  startOfDay,
+} from './due-date';
 import { NoteEditor } from '../editor/note-editor';
 import { ChangePasswordDialog } from '../features/change-password/change-password-dialog';
 import { openConfirm } from '../shared-ui/confirm-dialog';
@@ -91,7 +103,11 @@ interface CellPos {
     MatChipsModule,
     MatTooltipModule,
     MatAutocompleteModule,
+    MatDatepickerModule,
   ],
+  // The datepicker + inline calendar need a DateAdapter; the native adapter
+  // ships with Material (no extra npm dependency).
+  providers: [provideNativeDateAdapter()],
   templateUrl: './manager.html',
   styleUrl: './manager.scss',
 })
@@ -126,6 +142,18 @@ export class Manager implements OnInit {
   readonly filter = signal<NoteFilter>('all');
   readonly activeTag = signal<string | null>(null);
   readonly q = signal('');
+
+  // --- due-date calendar filter ---
+  // The active day-range filter as local Date day-anchors (start-of-day). A
+  // single-day filter has dueStart === dueEnd; null = no due filter.
+  readonly dueStart = signal<Date | null>(null);
+  readonly dueEnd = signal<Date | null>(null);
+  /** Set on mousedown over the calendar so (selectedChange) can read shiftKey. */
+  private shiftHeld = false;
+
+  // Expose the pure helpers to the template.
+  readonly dueLabel = dueLabel;
+  readonly dueState = dueState;
   readonly openId = signal<string | null>(null);
   readonly shareId = signal<string | null>(null);
   readonly selected = signal<ReadonlySet<string>>(new Set());
@@ -161,6 +189,40 @@ export class Manager implements OnInit {
   );
   readonly selectionCount = computed(() => this.selected().size);
   readonly inTrash = computed(() => this.filter() === 'trash');
+
+  /**
+   * Set of local-day timestamps (start-of-day ms) that have ≥1 due note. Derived
+   * from the CURRENTLY LOADED notes signal, so the calendar dots reflect the
+   * active filter view rather than the whole account.
+   */
+  readonly dueDays = computed(() => {
+    const set = new Set<number>();
+    for (const n of this.notes()) {
+      if (n.dueDate) set.add(startOfDay(new Date(n.dueDate)).getTime());
+    }
+    return set;
+  });
+
+  /** Marks calendar cells whose day carries a due note (CSS dot via dateClass). */
+  readonly dueDateClass: MatCalendarCellClassFunction<Date> = (date, view) =>
+    view === 'month' && this.dueDays().has(startOfDay(date).getTime())
+      ? 'has-due'
+      : '';
+
+  /** True when a due-date day/range filter is active (chip + calendar select). */
+  readonly hasDueFilter = computed(() => this.dueStart() !== null);
+
+  /** Human label for the active due filter chip ("Due Jun 15" or a range). */
+  readonly dueFilterLabel = computed(() => {
+    const start = this.dueStart();
+    const end = this.dueEnd();
+    if (!start) return '';
+    const fmt = (d: Date) =>
+      d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return end && !sameDay(start, end)
+      ? `Due ${fmt(start)} – ${fmt(end)}`
+      : `Due ${fmt(start)}`;
+  });
   /** Whether the open note's content may be edited by the current user. */
   readonly canEditOpen = computed(() => {
     const n = this.openNote();
@@ -256,6 +318,15 @@ export class Manager implements OnInit {
         q: this.q() || undefined,
         tag: this.activeTag() ?? undefined,
         sort: this.sort(),
+        // Local start-of-day / end-of-day bounds; the server does plain
+        // timestamp comparison (no timezone logic). A single-day filter
+        // (dueEnd null) spans that one day's start..end.
+        dueAfter: this.dueStart()
+          ? startOfDay(this.dueStart()!).toISOString()
+          : undefined,
+        dueBefore: this.dueStart()
+          ? endOfDay(this.dueEnd() ?? this.dueStart()!).toISOString()
+          : undefined,
       })
       .subscribe({
         next: (notes) => {
@@ -277,6 +348,8 @@ export class Manager implements OnInit {
   setFilter(filter: NoteFilter): void {
     this.filter.set(filter);
     this.activeTag.set(null);
+    this.dueStart.set(null);
+    this.dueEnd.set(null);
     this.openId.set(null);
     this.clearSelection();
     this.sidebarOpen.set(false);
@@ -286,6 +359,8 @@ export class Manager implements OnInit {
   setTag(name: string): void {
     this.activeTag.set(name);
     this.filter.set('all');
+    this.dueStart.set(null);
+    this.dueEnd.set(null);
     this.openId.set(null);
     this.clearSelection();
     this.sidebarOpen.set(false);
@@ -553,6 +628,73 @@ export class Manager implements OnInit {
       );
       this.refreshTags();
     });
+  }
+
+  // --- due date on the open note ---
+
+  /** Converts a stored ISO due date (or null/undefined) to a Date for the picker. */
+  dueAsDate(iso: string | null | undefined): Date | null {
+    return iso ? new Date(iso) : null;
+  }
+
+  /** Saves (or clears, when `date` is null) the open note's due date. */
+  setDue(noteId: string, date: Date | null): void {
+    const iso = date ? date.toISOString() : null;
+    this.api.updateMeta(noteId, { dueDate: iso }).subscribe((updated) => {
+      this.notes.update((list) =>
+        list.map((n) =>
+          n.id === noteId ? { ...n, dueDate: updated.dueDate } : n,
+        ),
+      );
+    });
+  }
+
+  // --- sidebar calendar filter ---
+
+  /**
+   * Records the shift key at mousedown so the subsequent (selectedChange) can
+   * tell a plain click from a Shift+Click without its own event object.
+   */
+  onCalendarMouseDown(event: MouseEvent): void {
+    this.shiftHeld = event.shiftKey;
+  }
+
+  /**
+   * Calendar day selection:
+   *  - plain click on a new day → filter to that single day;
+   *  - plain click on the already-selected single day → clear the filter;
+   *  - Shift+Click with one day already selected → filter the [min, max] range.
+   */
+  onCalendarSelect(date: Date | null): void {
+    if (!date) return;
+    const start = this.dueStart();
+
+    if (this.shiftHeld && start && !this.dueEnd()) {
+      const [lo, hi] =
+        date.getTime() < start.getTime() ? [date, start] : [start, date];
+      this.dueStart.set(lo);
+      this.dueEnd.set(hi);
+    } else if (start && !this.dueEnd() && sameDay(start, date)) {
+      // re-clicking the single selected day clears the filter
+      this.clearDueFilter();
+      return;
+    } else {
+      this.dueStart.set(date);
+      this.dueEnd.set(null);
+    }
+    this.openId.set(null);
+    this.refresh();
+  }
+
+  /** Current calendar selection (single day = start; the cell highlight). */
+  get dueSelected(): Date | null {
+    return this.dueStart();
+  }
+
+  clearDueFilter(): void {
+    this.dueStart.set(null);
+    this.dueEnd.set(null);
+    this.refresh();
   }
 
   logout(): void {
