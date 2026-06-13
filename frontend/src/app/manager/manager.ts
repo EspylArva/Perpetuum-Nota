@@ -75,6 +75,7 @@ import { NoteEditor } from '../editor/note-editor';
 import { OpenNotesStore } from '../editor/open-notes.store';
 import { ChangePasswordDialog } from '../features/change-password/change-password-dialog';
 import { openConfirm } from '../shared-ui/confirm-dialog';
+import { openNameDialog } from '../shared-ui/name-dialog';
 import { ShareDialog } from '../sharing/share-dialog';
 import {
   WALL_CARD_CELLS,
@@ -484,32 +485,39 @@ export class Manager implements OnInit {
   }
 
   /** Prompts for a name and creates a folder at the root. */
-  createRootFolder(): void {
-    const name = window.prompt('New folder name');
-    if (name === null) return;
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    this.foldersApi.create(trimmed, null).subscribe(() => this.refreshFolders());
+  async createRootFolder(): Promise<void> {
+    const name = await openNameDialog(this.dialog, {
+      title: 'New folder',
+      label: 'Folder name',
+      confirmText: 'Create',
+    });
+    if (!name) return;
+    this.foldersApi.create(name, null).subscribe(() => this.refreshFolders());
   }
 
-  createSubfolder(parent: FolderNode): void {
-    const name = window.prompt(`New subfolder in "${parent.name}"`);
-    if (name === null) return;
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    this.foldersApi.create(trimmed, parent.id).subscribe(() => {
+  async createSubfolder(parent: FolderNode): Promise<void> {
+    const name = await openNameDialog(this.dialog, {
+      title: 'New subfolder',
+      label: 'Folder name',
+      confirmText: 'Create',
+    });
+    if (!name) return;
+    this.foldersApi.create(name, parent.id).subscribe(() => {
       // Reveal the new child by expanding its parent.
       this.expandedFolders.update((set) => new Set(set).add(parent.id));
       this.refreshFolders();
     });
   }
 
-  renameFolder(folder: FolderNode): void {
-    const name = window.prompt('Rename folder', folder.name);
-    if (name === null) return;
-    const trimmed = name.trim();
-    if (!trimmed || trimmed === folder.name) return;
-    this.foldersApi.rename(folder.id, trimmed).subscribe(() => this.refreshFolders());
+  async renameFolder(folder: FolderNode): Promise<void> {
+    const name = await openNameDialog(this.dialog, {
+      title: 'Rename folder',
+      label: 'Folder name',
+      initial: folder.name,
+      confirmText: 'Rename',
+    });
+    if (!name || name === folder.name) return;
+    this.foldersApi.rename(folder.id, name).subscribe(() => this.refreshFolders());
   }
 
   deleteFolder(folder: FolderNode): void {
@@ -543,15 +551,18 @@ export class Manager implements OnInit {
       if (result === undefined) return; // cancelled
       if (result === note.folderId) return; // no change
       this.api.updateMeta(note.id, { folderId: result }).subscribe((updated) => {
+        // Single pass: patch the moved note's folderId and, when a folder
+        // filter is active that the note no longer matches, omit it entirely.
+        const activeFolderId = this.activeFolderId();
+        const dropsOut =
+          !!activeFolderId && updated.folderId !== activeFolderId;
         this.notes.update((list) =>
-          list.map((n) =>
-            n.id === note.id ? { ...n, folderId: updated.folderId } : n,
-          ),
+          dropsOut
+            ? list.filter((n) => n.id !== note.id)
+            : list.map((n) =>
+                n.id === note.id ? { ...n, folderId: updated.folderId } : n,
+              ),
         );
-        // If filtering by a folder the note just left, drop it from the view.
-        if (this.activeFolderId() && updated.folderId !== this.activeFolderId()) {
-          this.notes.update((list) => list.filter((n) => n.id !== note.id));
-        }
         this.refreshFolders(); // note counts changed
       });
     });

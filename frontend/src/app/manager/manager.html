@@ -109,6 +109,17 @@
       </mat-nav-list>
     }
 
+    @if (!isHandset() && sidenav.collapsed() && activeFolderId()) {
+      <mat-nav-list>
+        <a mat-list-item [activated]="true"
+           [attr.aria-label]="'Filtered by folder: ' + activeFolderName() + ' — click to clear'"
+           [matTooltip]="'Filtered by folder: ' + activeFolderName() + ' — click to clear'"
+           (click)="clearFolderFilter()">
+          <mat-icon matListItemIcon>folder</mat-icon>
+        </a>
+      </mat-nav-list>
+    }
+
     <!-- Sidebar calendar: desktop only, hidden in the collapsed rail. Marks days
          with a due note (derived from the loaded notes list) and filters by day
          or, with Shift+Click, by a [min,max] range. -->

@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFolderDto } from './dto/create-folder.dto';
 import { UpdateFolderDto } from './dto/update-folder.dto';
@@ -65,31 +66,43 @@ export class FoldersService {
     const moving = dto.parentId !== undefined;
     const newParentId = dto.parentId ?? null;
 
-    if (moving && newParentId) {
-      if (newParentId === folderId) {
-        throw new BadRequestException('A folder cannot be its own parent');
-      }
-      await this.assertOwnedFolder(newParentId, userId);
-      // Reject moving a folder under one of its own descendants (would orphan a
-      // subtree into a cycle). Walk up from the target parent; if we hit the
-      // folder being moved, the target is inside its subtree.
-      if (await this.isDescendant(newParentId, folderId, userId)) {
-        throw new BadRequestException(
-          'Cannot move a folder into its own descendant',
-        );
-      }
+    // Self-parent is a pure value check — reject it up front (400). It need not
+    // be inside the transaction.
+    if (moving && newParentId === folderId) {
+      throw new BadRequestException('A folder cannot be its own parent');
     }
 
-    const folder = await this.prisma.folder.update({
-      where: { id: folderId },
-      data: {
-        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
-        ...(moving ? { parentId: newParentId } : {}),
+    // The cycle check (a read walk up the parent chain) and the parentId write
+    // must be atomic: run them in one Serializable transaction so two
+    // concurrent moves can't each pass the check and then both commit a cycle.
+    // All reads in the walk use the same `tx` client as the final update.
+    const folder = await this.prisma.$transaction(
+      async (tx) => {
+        if (moving && newParentId) {
+          await this.assertOwnedFolder(newParentId, userId, tx);
+          // Reject moving a folder under one of its own descendants (would
+          // orphan a subtree into a cycle). Walk up from the target parent; if
+          // we hit the folder being moved, the target is inside its subtree.
+          if (await this.isDescendant(newParentId, folderId, userId, tx)) {
+            throw new BadRequestException(
+              'Cannot move a folder into its own descendant',
+            );
+          }
+        }
+
+        return tx.folder.update({
+          where: { id: folderId },
+          data: {
+            ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+            ...(moving ? { parentId: newParentId } : {}),
+          },
+          include: {
+            _count: { select: { notes: { where: { deletedAt: null } } } },
+          },
+        });
       },
-      include: {
-        _count: { select: { notes: { where: { deletedAt: null } } } },
-      },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
     return {
       id: folder.id,
       name: folder.name,
@@ -124,9 +137,16 @@ export class FoldersService {
     return { id: folderId };
   }
 
-  /** Loads a folder and asserts the caller owns it, else 404. */
-  private async assertOwnedFolder(folderId: string, userId: string) {
-    const folder = await this.prisma.folder.findUnique({
+  /**
+   * Loads a folder and asserts the caller owns it, else 404. Accepts an
+   * optional transaction client so the check can run inside a transaction.
+   */
+  private async assertOwnedFolder(
+    folderId: string,
+    userId: string,
+    client: Prisma.TransactionClient = this.prisma,
+  ) {
+    const folder = await client.folder.findUnique({
       where: { id: folderId },
     });
     if (!folder || folder.ownerId !== userId) {
@@ -144,6 +164,7 @@ export class FoldersService {
     candidateId: string,
     ancestorId: string,
     userId: string,
+    client: Prisma.TransactionClient = this.prisma,
   ): Promise<boolean> {
     const visited = new Set<string>();
     let current: string | null = candidateId;
@@ -152,7 +173,7 @@ export class FoldersService {
       if (visited.has(current)) break; // defensive: pre-existing data cycle
       visited.add(current);
       const node: { parentId: string | null } | null =
-        await this.prisma.folder.findFirst({
+        await client.folder.findFirst({
           where: { id: current, ownerId: userId },
           select: { parentId: true },
         });
