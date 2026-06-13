@@ -559,6 +559,7 @@ export class Manager implements OnInit {
     this.activeFolderId.set(null);
     this.dueStart.set(null);
     this.dueEnd.set(null);
+    this.q.set('');
     this.openId.set(null);
     this.closeAllWallWindows();
     this.clearSelection();
@@ -572,6 +573,7 @@ export class Manager implements OnInit {
     this.activeFolderId.set(null);
     this.dueStart.set(null);
     this.dueEnd.set(null);
+    this.q.set('');
     this.openId.set(null);
     this.closeAllWallWindows();
     this.clearSelection();
@@ -588,6 +590,7 @@ export class Manager implements OnInit {
     this.activeTag.set(null);
     this.dueStart.set(null);
     this.dueEnd.set(null);
+    this.q.set('');
     this.openId.set(null);
     this.closeAllWallWindows();
     this.clearSelection();
