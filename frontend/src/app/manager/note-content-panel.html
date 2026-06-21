@@ -1,0 +1,57 @@
+@if (note(); as on) {
+  <div class="pane-meta">{{ authorLine(on) }}</div>
+}
+@if (editable()) {
+  <div class="tag-editor">
+    <mat-chip-grid #chipGrid aria-label="Tags">
+      @for (t of note()!.tags; track t) {
+        <mat-chip-row class="tag-chip-row" (removed)="removeTag(t)"
+                      [style.background]="tagColor(t).bg" [style.color]="tagColor(t).fg">
+          {{ t }}
+          <button matChipRemove aria-label="Remove tag"><mat-icon>cancel</mat-icon></button>
+        </mat-chip-row>
+      }
+    </mat-chip-grid>
+    <input #tagInputEl class="tag-input" placeholder="Add tag…"
+           #trigger="matAutocompleteTrigger"
+           [matChipInputFor]="chipGrid" [matChipInputAddOnBlur]="false"
+           [matAutocomplete]="tagAc"
+           (input)="setTagQuery($any($event.target).value)"
+           (matChipInputTokenEnd)="addFromChip($event, trigger)" />
+    <mat-autocomplete #tagAc (optionSelected)="addFromOption($event, tagInputEl)">
+      @for (opt of tagOptions(); track opt) {
+        <mat-option [value]="opt">{{ opt }}</mat-option>
+      }
+    </mat-autocomplete>
+
+    <div class="due-control">
+      <mat-icon class="due-ico">event</mat-icon>
+      <input class="due-input" placeholder="Due date" aria-label="Due date" readonly
+             [matDatepicker]="duePicker"
+             [value]="dueAsDate(note()?.dueDate)"
+             (dateChange)="dueChange.emit($event.value)"
+             (click)="duePicker.open()" />
+      <mat-datepicker #duePicker />
+      <button matIconButton class="due-pick" matTooltip="Pick due date" (click)="duePicker.open()">
+        <mat-icon>edit_calendar</mat-icon>
+      </button>
+      @if (note()?.dueDate) {
+        <button matIconButton class="due-clear" matTooltip="Clear due date" (click)="dueChange.emit(null)">
+          <mat-icon>close</mat-icon>
+        </button>
+      }
+    </div>
+  </div>
+}
+@if (links().length > 0) {
+  <div class="links-bar" aria-label="Linked notes">
+    @for (lk of links(); track lk.id) {
+      <a class="chip link-chip" [routerLink]="['/note', lk.id]"
+         (click)="openLink.emit({ id: lk.id, event: $event })"
+         [matTooltip]="'Open ' + (lk.title || 'Untitled')">
+        <mat-icon class="link-ico">link</mat-icon>{{ lk.title || 'Untitled' }}
+      </a>
+    }
+  </div>
+}
+<app-note-editor [noteId]="noteId()" [editable]="editable()" [exportName]="note()?.title || 'note'" />

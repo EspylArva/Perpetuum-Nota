@@ -9,6 +9,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import type { UserAdminDto } from '@perpetuum-nota/shared';
 import { UsersApi } from '../core/users.api';
 import { generateTempPassword } from './password-gen';
+import { ModalShell } from '../shared-ui/modal-shell';
 
 @Component({
   selector: 'app-reset-password-dialog',
@@ -19,10 +20,10 @@ import { generateTempPassword } from './password-gen';
     MatIconModule,
     MatInputModule,
     MatTooltipModule,
+    ModalShell,
   ],
   template: `
-    <div class="backdrop" (click)="cancel()">
-      <div class="dialog" (click)="$event.stopPropagation()">
+    <app-modal-shell [width]="'440px'" (close)="cancel()">
         <h2>Reset password — {{ target().displayName }}</h2>
 
         @if (done()) {
@@ -59,24 +60,10 @@ import { generateTempPassword } from './password-gen';
             </div>
           </form>
         }
-      </div>
-    </div>
+    </app-modal-shell>
   `,
   styles: [
     `
-      .backdrop {
-        position: fixed; inset: 0;
-        background: color-mix(in srgb, var(--mat-sys-scrim) 45%, transparent);
-        display: grid; place-items: center; z-index: 60; padding: 1.5rem;
-      }
-      .dialog {
-        width: min(440px, 100%);
-        background: var(--mat-sys-surface-container-high);
-        color: var(--mat-sys-on-surface);
-        border-radius: 16px;
-        padding: 1.25rem 1.4rem;
-        box-shadow: var(--mat-sys-level5);
-      }
       h2 { margin: 0 0 0.9rem; font-size: var(--sn-text-xl); }
       .hint { font-size: var(--sn-text-sm); color: var(--mat-sys-on-surface-variant); margin: 0 0 0.6rem; }
       .pw-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.3rem; }

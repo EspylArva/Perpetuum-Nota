@@ -23,12 +23,17 @@ function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
 
+/** Coerces a `Date` or ISO string to a `Date` (ISO strings via the platform parser). */
+export function toDate(value: Date | string): Date {
+  return value instanceof Date ? value : new Date(value);
+}
+
 /**
  * Formats `date` (a `Date` or ISO string) per `fmt`. Pure — no locale state or
  * side effects beyond reading the input's local calendar fields.
  */
 export function formatDate(date: Date | string, fmt: DateFormat): string {
-  const d = date instanceof Date ? date : new Date(date);
+  const d = toDate(date);
 
   const year = d.getFullYear();
   const month = pad(d.getMonth() + 1);

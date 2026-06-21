@@ -7,14 +7,12 @@
  *  - `dueLabel` gives the human relative wording shown on the chip.
  */
 
+import { toDate } from '../core/date-format';
+
 export type DueState = 'passed' | 'nearing' | 'normal';
 
 /** 48-hour nearing window, in milliseconds. */
 const NEARING_MS = 48 * 60 * 60 * 1000;
-
-function toDate(due: Date | string): Date {
-  return due instanceof Date ? due : new Date(due);
-}
 
 /** Local midnight (00:00:00.000) of the given date. */
 export function startOfDay(d: Date): Date {

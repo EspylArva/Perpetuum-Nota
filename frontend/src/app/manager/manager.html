@@ -1,30 +1,8 @@
-<mat-toolbar class="bar">
-  @if (isHandset()) {
-    <button matIconButton (click)="sidebarOpen.set(!sidebarOpen())" aria-label="Menu">
-      <mat-icon>menu</mat-icon>
-    </button>
-  }
-  @if (!isHandset()) {
-    <button matIconButton (click)="sidenav.toggle()"
-            [matTooltip]="sidenav.collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
-            aria-label="Toggle sidebar">
-      <mat-icon>{{ sidenav.collapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
-    </button>
-  }
-  <span class="brand">Perpetuum Nota</span>
-  <span class="spacer"></span>
-  <button matIconButton (click)="theme.toggle()"
-          [matTooltip]="theme.mode() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
-    <mat-icon>{{ theme.mode() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
-  </button>
-  <a matIconButton routerLink="/settings" matTooltip="Settings" aria-label="Settings">
-    <mat-icon>settings</mat-icon>
-  </a>
-  @if (user(); as u) {
-    <span class="who">{{ u.displayName }}</span>
-  }
-  <button matButton (click)="logout()">Sign out</button>
-</mat-toolbar>
+<app-manager-toolbar
+  [isHandset]="isHandset()"
+  [userName]="user()?.displayName"
+  (toggleSidebar)="sidebarOpen.set(!sidebarOpen())"
+  (logout)="logout()" />
 
 <mat-sidenav-container class="layout">
   <mat-sidenav
@@ -38,29 +16,31 @@
             aria-label="New note" matTooltip="New note">
       <mat-icon>add</mat-icon> <span>New note</span>
     </button>
+    <!-- navTooltipsOff: labels are visible unless the rail is collapsed to icons,
+         so the nav tooltips only help in the collapsed rail. -->
     <mat-nav-list>
       <a mat-list-item [activated]="filter() === 'all' && !activeTag() && !activeFolderId()" (click)="setFilter('all')"
-         aria-label="All notes" matTooltip="All notes">
+         aria-label="All notes" matTooltip="All notes" [matTooltipDisabled]="navTooltipsOff()">
         <mat-icon matListItemIcon>notes</mat-icon>
         <span matListItemTitle>All notes</span>
       </a>
       <a mat-list-item [activated]="filter() === 'mine'" (click)="setFilter('mine')"
-         aria-label="My notes" matTooltip="My notes">
+         aria-label="My notes" matTooltip="My notes" [matTooltipDisabled]="navTooltipsOff()">
         <mat-icon matListItemIcon>person</mat-icon>
         <span matListItemTitle>My notes</span>
       </a>
       <a mat-list-item [activated]="filter() === 'shared'" (click)="setFilter('shared')"
-         aria-label="Shared with me" matTooltip="Shared with me">
+         aria-label="Shared with me" matTooltip="Shared with me" [matTooltipDisabled]="navTooltipsOff()">
         <mat-icon matListItemIcon [matBadge]="sharedBadge() || null" matBadgeColor="warn" matBadgeSize="small">group</mat-icon>
         <span matListItemTitle>Shared with me</span>
       </a>
       <a mat-list-item [activated]="inTrash()" (click)="setFilter('trash')"
-         aria-label="Trash" matTooltip="Trash">
+         aria-label="Trash" matTooltip="Trash" [matTooltipDisabled]="navTooltipsOff()">
         <mat-icon matListItemIcon>delete</mat-icon>
         <span matListItemTitle>Trash</span>
       </a>
       <a mat-list-item routerLink="/graph"
-         aria-label="Graph view" matTooltip="Graph view">
+         aria-label="Graph view" matTooltip="Graph view" [matTooltipDisabled]="navTooltipsOff()">
         <mat-icon matListItemIcon>hub</mat-icon>
         <span matListItemTitle>Graph</span>
       </a>
@@ -170,16 +150,16 @@
           <mat-button-toggle value="wall"><mat-icon>grid_view</mat-icon></mat-button-toggle>
         </mat-button-toggle-group>
         @if (mode() === 'wall') {
-          <button matIconButton (click)="toggleLinks()" [class.active]="showLinks()"
+          <button matIconButton (click)="wall.toggleLinks()" [class.active]="wall.showLinks()"
                   matTooltip="Toggle note links" aria-label="Toggle note links">
             <mat-icon>polyline</mat-icon>
           </button>
-          <button matIconButton (click)="toggleReorganize()" [class.active]="reorganizing()"
+          <button matIconButton (click)="wall.toggleReorganize()" [class.active]="wall.reorganizing()"
                   matTooltip="Reorganize cards by title" aria-label="Reorganize cards">
             <mat-icon>auto_awesome_mosaic</mat-icon>
           </button>
-          @if (reorganizing()) {
-            <button matButton="filled" (click)="commitReorganize()"
+          @if (wall.reorganizing()) {
+            <button matButton="filled" (click)="wall.commitReorganize()"
                     matTooltip="Save these positions">Commit</button>
           }
         }
@@ -385,64 +365,15 @@
                 <mat-icon>close</mat-icon>
               </button>
             </div>
-            @if (openNote(); as on) {
-              <div class="pane-meta">{{ authorLine(on) }}</div>
-            }
-            @if (canEditOpen()) {
-              <div class="tag-editor">
-                <mat-chip-grid #chipGrid aria-label="Tags">
-                  @for (t of openNote()!.tags; track t) {
-                    <mat-chip-row class="tag-chip-row" (removed)="removeTag(t)"
-                                  [style.background]="tagColor(t).bg" [style.color]="tagColor(t).fg">
-                      {{ t }}
-                      <button matChipRemove aria-label="Remove tag"><mat-icon>cancel</mat-icon></button>
-                    </mat-chip-row>
-                  }
-                </mat-chip-grid>
-                <input #tagInputEl class="tag-input" placeholder="Add tag…"
-                       #trigger="matAutocompleteTrigger"
-                       [matChipInputFor]="chipGrid" [matChipInputAddOnBlur]="false"
-                       [matAutocomplete]="tagAc"
-                       [value]="tagQuery()"
-                       (input)="tagQuery.set($any($event.target).value)"
-                       (matChipInputTokenEnd)="addTagFromChip($event, trigger)" />
-                <mat-autocomplete #tagAc (optionSelected)="addTagFromOption($event, tagInputEl)">
-                  @for (opt of tagOptions(); track opt) {
-                    <mat-option [value]="opt">{{ opt }}</mat-option>
-                  }
-                </mat-autocomplete>
-
-                <div class="due-control">
-                  <mat-icon class="due-ico">event</mat-icon>
-                  <input class="due-input" placeholder="Due date" aria-label="Due date" readonly
-                         [matDatepicker]="duePicker"
-                         [value]="dueAsDate(openNote()?.dueDate)"
-                         (dateChange)="setDue(id, $event.value)"
-                         (click)="duePicker.open()" />
-                  <mat-datepicker #duePicker />
-                  <button matIconButton class="due-pick" matTooltip="Pick due date" (click)="duePicker.open()">
-                    <mat-icon>edit_calendar</mat-icon>
-                  </button>
-                  @if (openNote()?.dueDate) {
-                    <button matIconButton class="due-clear" matTooltip="Clear due date" (click)="setDue(id, null)">
-                      <mat-icon>close</mat-icon>
-                    </button>
-                  }
-                </div>
-              </div>
-            }
-            @if (openNoteLinks().length > 0) {
-              <div class="links-bar" aria-label="Linked notes">
-                @for (lk of openNoteLinks(); track lk.id) {
-                  <a class="chip link-chip" [routerLink]="['/note', lk.id]"
-                     (click)="openLink(lk.id, $event)"
-                     [matTooltip]="'Open ' + (lk.title || 'Untitled')">
-                    <mat-icon class="link-ico">link</mat-icon>{{ lk.title || 'Untitled' }}
-                  </a>
-                }
-              </div>
-            }
-            <app-note-editor [noteId]="id" [editable]="canEditOpen()" [exportName]="openNote()?.title || 'note'" />
+            <app-note-content-panel
+              [noteId]="id"
+              [note]="openNote()"
+              [editable]="canEditOpen()"
+              [allTags]="tags()"
+              [links]="openNoteLinks()"
+              (tagsChange)="saveTags(id, $event)"
+              (dueChange)="setDue(id, $event)"
+              (openLink)="openLink($event.id, $event.event)" />
           } @empty {
             <p class="empty">Select a note, or create a new one.</p>
           }
@@ -455,22 +386,22 @@
            grid space pans; pointerdown on a card stops propagation so it won't
            pan. setPointerCapture keeps a fast drag tracking. -->
       <div class="wall-scroll" #wallScrollEl
-           [class.panning]="panning()"
-           [class.drop-hover]="dragOverGrid()"
+           [class.panning]="wall.panning()"
+           [class.drop-hover]="wall.dragOverGrid()"
            (pointerdown)="onPanPointerDown($event)"
            (pointermove)="onPanPointerMove($event)"
            (pointerup)="onPanPointerUp($event)"
            (pointercancel)="onPanPointerUp($event)"
            (contextmenu)="openGridContextMenu($event)">
-        <div class="wall-grid" #wallEl [style.height.px]="wallHeightPx()"
-             [class.reorganizing]="reorganizing()"
-             [style.transform]="'translate(' + panOffset().x + 'px,' + panOffset().y + 'px)'">
+        <div class="wall-grid" #wallEl [style.height.px]="wall.wallHeightPx()"
+             [class.reorganizing]="wall.reorganizing()"
+             [style.transform]="'translate(' + wall.panOffset().x + 'px,' + wall.panOffset().y + 'px)'">
 
           <!-- Subtle connector lines between linked notes (toggle). Behind the
                cards, non-interactive so it never blocks dragging/panning. -->
-          @if (showLinks()) {
-            <svg class="wall-links" [attr.height]="wallHeightPx()">
-              @for (l of wallLinkLines(); track $index) {
+          @if (wall.showLinks()) {
+            <svg class="wall-links" [attr.height]="wall.wallHeightPx()">
+              @for (l of wall.wallLinkLines(); track $index) {
                 <line [attr.x1]="l.x1" [attr.y1]="l.y1" [attr.x2]="l.x2" [attr.y2]="l.y2" />
               }
             </svg>
@@ -478,23 +409,23 @@
 
           <!-- Root-level folders as draggable cards (root, unfiltered view only).
                A genuine click (no drag) opens the folder window. -->
-          @for (f of rootFolders(); track f.id) {
+          @for (f of wall.rootFolders(); track f.id) {
             <article
               class="folder-card"
               role="button"
               tabindex="0"
               cdkDrag
-              [cdkDragDisabled]="reorganizing()"
-              (cdkDragEnded)="onFolderDragEnd(f, $event)"
+              [cdkDragDisabled]="wall.reorganizing()"
+              (cdkDragEnded)="wall.onFolderDragEnd(f, $event)"
               [attr.data-folder-id]="f.id"
-              [class.drop-hover]="dragOverFolderId() === f.id"
+              [class.drop-hover]="wall.dragOverFolderId() === f.id"
               [attr.aria-label]="'Open folder ' + f.name + ' (' + f.noteCount + ' notes)'"
-              [style.left.px]="(folderLayout().get(f.id)?.x ?? 0) * CELL"
-              [style.top.px]="(folderLayout().get(f.id)?.y ?? 0) * CELL"
-              (pointerdown)="onFolderPointerDown($event)"
-              (pointerup)="onFolderPointerUp(f.id, $event)"
-              (keydown.enter)="openFolderWindow(f.id)"
-              (keydown.space)="openFolderWindow(f.id); $event.preventDefault()"
+              [style.left.px]="(wall.folderLayout().get(f.id)?.x ?? 0) * wall.CELL"
+              [style.top.px]="(wall.folderLayout().get(f.id)?.y ?? 0) * wall.CELL"
+              (pointerdown)="wall.onFolderPointerDown($event)"
+              (pointerup)="wall.onFolderPointerUp(f.id, $event)"
+              (keydown.enter)="wall.openFolderWindow(f.id)"
+              (keydown.space)="wall.openFolderWindow(f.id); $event.preventDefault()"
               [matTooltip]="'Click to open ' + f.name"
               matTooltipShowDelay="400"
             >
@@ -504,23 +435,23 @@
             </article>
           }
 
-          @for (n of wallNotes(); track n.id) {
+          @for (n of wall.wallNotes(); track n.id) {
             <article
               class="card"
               [appWallCell]="n.id"
-              (heightCells)="onCellHeight($event)"
+              (heightCells)="wall.onCellHeight($event)"
               cdkDrag
               [cdkDragDisabled]="!n.isOwner"
-              (cdkDragMoved)="onNoteDragMoved($event)"
-              (cdkDragEnded)="onWallDragEnd(n, $event)"
-              [style.left.px]="(wallLayout().get(n.id)?.x ?? 0) * CELL"
-              [style.top.px]="(noteOffsetCells() + (wallLayout().get(n.id)?.y ?? 0)) * CELL"
+              (cdkDragMoved)="wall.onNoteDragMoved($event)"
+              (cdkDragEnded)="wall.onWallDragEnd(n, $event)"
+              [style.left.px]="(wall.wallLayout().get(n.id)?.x ?? 0) * wall.CELL"
+              [style.top.px]="(wall.noteOffsetCells() + (wall.wallLayout().get(n.id)?.y ?? 0)) * wall.CELL"
               [class.checked]="isSelected(n.id)"
               [class.foreign]="!n.isOwner"
               [matTooltip]="authorLine(n)"
               matTooltipShowDelay="400"
-              (pointerdown)="onCardPointerDown($event)"
-              (pointerup)="onCardPointerUp(n.id, $event)"
+              (pointerdown)="wall.onCardPointerDown($event)"
+              (pointerup)="wall.onCardPointerUp(n.id, $event)"
               (contextmenu)="openContextMenu(n, $event)"
             >
               <!-- Header strip: selection checkbox top-left; due date + delete
@@ -564,7 +495,7 @@
               }
             </article>
           } @empty {
-            @if (rootFolders().length === 0) {
+            @if (wall.rootFolders().length === 0) {
               <p class="muted">{{ loading() ? 'Loading…' : (pinnedOnly() ? 'No pinned notes.' : (q() ? 'No notes match your search.' : 'No notes yet.')) }}</p>
             }
           }
@@ -573,93 +504,45 @@
 
       <!-- Floating, NON-MODAL note windows: multiple can be open, the grid stays
            interactive, each is draggable + focus-stacking. -->
-      @for (id of wallOpenIds(); track id; let i = $index) {
-        @if (!isMinimized(id)) {
+      @for (id of wall.wallOpenIds(); track id; let i = $index) {
+        @if (!wall.isMinimized(id)) {
         <app-note-window
-          [title]="noteById(id)?.title || ''"
-          [left]="windowLeft(i)" [top]="windowTop(i)"
-          [position]="windowPos(id)"
-          [zIndex]="zOf(id)"
-          (raise)="raiseWindow(id)"
-          (moved)="onWindowMoved(id, $event)"
-          (minimize)="minimize(id)"
-          (close)="closeWindow(id)"
+          [title]="wall.noteById(id)?.title || ''"
+          [left]="wall.windowLeft(i)" [top]="wall.windowTop(i)"
+          [position]="wall.windowPos(id)"
+          [zIndex]="wall.zOf(id)"
+          (raise)="wall.raiseWindow(id)"
+          (moved)="wall.onWindowMoved(id, $event)"
+          (minimize)="wall.minimize(id)"
+          (close)="wall.closeWindow(id)"
         >
           <div class="nw-head">
-            <input class="title-input" [value]="noteById(id)?.title || ''" [disabled]="!canEditNote(id)"
+            <input class="title-input" [value]="wall.noteById(id)?.title || ''" [disabled]="!wall.canEditNote(id)"
                    (change)="rename(id, $any($event.target).value)" placeholder="Untitled" />
-            @if (noteById(id)?.isOwner) {
-              <button matIconButton [class.pinned]="noteById(id)?.pinned"
-                      [matTooltip]="noteById(id)?.pinned ? 'Unpin' : 'Pin'" (click)="togglePin(noteById(id)!)">
+            @if (wall.noteById(id)?.isOwner) {
+              <button matIconButton [class.pinned]="wall.noteById(id)?.pinned"
+                      [matTooltip]="wall.noteById(id)?.pinned ? 'Unpin' : 'Pin'" (click)="togglePin(wall.noteById(id)!)">
                 <mat-icon>push_pin</mat-icon>
               </button>
             }
             <button matIconButton matTooltip="Duplicate" (click)="duplicate(id)">
               <mat-icon>content_copy</mat-icon>
             </button>
-            @if (noteById(id)?.isOwner) {
+            @if (wall.noteById(id)?.isOwner) {
               <button matButton="outlined" (click)="openShare(id)">
                 <mat-icon>share</mat-icon> Share
               </button>
             }
           </div>
-          @if (noteById(id); as on) {
-            <div class="pane-meta">{{ authorLine(on) }}</div>
-          }
-          @if (canEditNote(id)) {
-            <div class="tag-editor">
-              <mat-chip-grid #chipGridWin aria-label="Tags">
-                @for (t of noteById(id)!.tags; track t) {
-                  <mat-chip-row class="tag-chip-row" (removed)="removeTagOn(id, t)"
-                                [style.background]="tagColor(t).bg" [style.color]="tagColor(t).fg">
-                    {{ t }}
-                    <button matChipRemove aria-label="Remove tag"><mat-icon>cancel</mat-icon></button>
-                  </mat-chip-row>
-                }
-              </mat-chip-grid>
-              <input #tagInputWinEl class="tag-input" placeholder="Add tag…"
-                     #triggerWin="matAutocompleteTrigger"
-                     [matChipInputFor]="chipGridWin" [matChipInputAddOnBlur]="false"
-                     [matAutocomplete]="tagAcWin"
-                     (input)="tagQuery.set($any($event.target).value)"
-                     (matChipInputTokenEnd)="addTagOn(id, $event, triggerWin)" />
-              <mat-autocomplete #tagAcWin (optionSelected)="addTagOnFromOption(id, $event, tagInputWinEl)">
-                @for (opt of tagOptionsFor(id); track opt) {
-                  <mat-option [value]="opt">{{ opt }}</mat-option>
-                }
-              </mat-autocomplete>
-
-              <div class="due-control">
-                <mat-icon class="due-ico">event</mat-icon>
-                <input class="due-input" placeholder="Due date" aria-label="Due date" readonly
-                       [matDatepicker]="duePickerWin"
-                       [value]="dueAsDate(noteById(id)?.dueDate)"
-                       (dateChange)="setDue(id, $event.value)"
-                       (click)="duePickerWin.open()" />
-                <mat-datepicker #duePickerWin />
-                <button matIconButton class="due-pick" matTooltip="Pick due date" (click)="duePickerWin.open()">
-                  <mat-icon>edit_calendar</mat-icon>
-                </button>
-                @if (noteById(id)?.dueDate) {
-                  <button matIconButton class="due-clear" matTooltip="Clear due date" (click)="setDue(id, null)">
-                    <mat-icon>close</mat-icon>
-                  </button>
-                }
-              </div>
-            </div>
-          }
-          @if (linksOfWindow(id).length > 0) {
-            <div class="links-bar" aria-label="Linked notes">
-              @for (lk of linksOfWindow(id); track lk.id) {
-                <a class="chip link-chip" [routerLink]="['/note', lk.id]"
-                   (click)="openLink(lk.id, $event)"
-                   [matTooltip]="'Open ' + (lk.title || 'Untitled')">
-                  <mat-icon class="link-ico">link</mat-icon>{{ lk.title || 'Untitled' }}
-                </a>
-              }
-            </div>
-          }
-          <app-note-editor [noteId]="id" [editable]="canEditNote(id)" [exportName]="noteById(id)?.title || 'note'" />
+          <app-note-content-panel
+            [noteId]="id"
+            [note]="wall.noteById(id)"
+            [editable]="wall.canEditNote(id)"
+            [allTags]="tags()"
+            [links]="wall.linksOfWindow(id)"
+            (tagsChange)="saveTags(id, $event)"
+            (dueChange)="setDue(id, $event)"
+            (openLink)="openLink($event.id, $event.event)" />
         </app-note-window>
         }
       }
@@ -668,41 +551,41 @@
            Tiles are draggable (drop out onto the grid to unfile / move to root,
            onto another folder window to refile); double-click the title bar to
            rename the folder. -->
-      @for (fid of wallFolderIds(); track fid; let i = $index) {
-        @if (!isMinimized(fid)) {
+      @for (fid of wall.wallFolderIds(); track fid; let i = $index) {
+        @if (!wall.isMinimized(fid)) {
         <app-note-window
-          [title]="folderName(fid)"
-          [left]="windowLeft(wallOpenIds().length + i)" [top]="windowTop(wallOpenIds().length + i)"
-          [position]="windowPos(fid)"
-          [zIndex]="zOf(fid)"
-          [unclip]="draggingMini()"
+          [title]="wall.folderName(fid)"
+          [left]="wall.windowLeft(wall.wallOpenIds().length + i)" [top]="wall.windowTop(wall.wallOpenIds().length + i)"
+          [position]="wall.windowPos(fid)"
+          [zIndex]="wall.zOf(fid)"
+          [unclip]="wall.draggingMini()"
           [attr.data-folder-window]="fid"
-          (raise)="raiseWindow(fid)"
-          (moved)="onWindowMoved(fid, $event)"
-          (minimize)="minimize(fid)"
+          (raise)="wall.raiseWindow(fid)"
+          (moved)="wall.onWindowMoved(fid, $event)"
+          (minimize)="wall.minimize(fid)"
           (headerDblclick)="renameFolderById(fid)"
-          (close)="closeFolderWindow(fid)"
+          (close)="wall.closeFolderWindow(fid)"
         >
-          <div class="folder-window-grid" [class.drop-hover]="dragOverFolderId() === fid">
-            @for (sf of subfolders(fid); track sf.id) {
+          <div class="folder-window-grid" [class.drop-hover]="wall.dragOverFolderId() === fid">
+            @for (sf of wall.subfolders(fid); track sf.id) {
               <button type="button" class="mini folder-mini"
                       cdkDrag
-                      (cdkDragStarted)="onMiniDragStart()"
-                      (cdkDragMoved)="onMiniDragMoved($event)"
-                      (cdkDragEnded)="onMiniFolderDragEnd(fid, sf, $event)"
-                      (click)="openFolderWindow(sf.id)"
+                      (cdkDragStarted)="wall.onMiniDragStart()"
+                      (cdkDragMoved)="wall.onMiniDragMoved($event)"
+                      (cdkDragEnded)="wall.onMiniFolderDragEnd(fid, sf, $event)"
+                      (click)="wall.openFolderWindow(sf.id)"
                       [matTooltip]="sf.name">
                 <mat-icon class="folder-ico">folder</mat-icon>
                 <span class="mini-title">{{ sf.name }}</span>
                 <span class="folder-count">{{ sf.noteCount }}</span>
               </button>
             }
-            @for (n of notesInFolder(fid); track n.id) {
+            @for (n of wall.notesInFolder(fid); track n.id) {
               <button type="button" class="mini note-mini"
                       cdkDrag
-                      (cdkDragStarted)="onMiniDragStart()"
-                      (cdkDragMoved)="onMiniDragMoved($event)"
-                      (cdkDragEnded)="onMiniNoteDragEnd(fid, n, $event)"
+                      (cdkDragStarted)="wall.onMiniDragStart()"
+                      (cdkDragMoved)="wall.onMiniDragMoved($event)"
+                      (cdkDragEnded)="wall.onMiniNoteDragEnd(fid, n, $event)"
                       (click)="open(n.id)"
                       (contextmenu)="openContextMenu(n, $event)"
                       [matTooltip]="authorLine(n)" matTooltipShowDelay="400">
@@ -713,7 +596,7 @@
                 <span class="mini-preview">{{ n.preview || 'Empty note' }}</span>
               </button>
             } @empty {
-              @if (subfolders(fid).length === 0) {
+              @if (wall.subfolders(fid).length === 0) {
                 <p class="muted">This folder is empty.</p>
               }
             }
@@ -727,25 +610,25 @@
            stack; hovering the stack fans the bubbles into a non-overlapping
            vertical column. Clicking a bubble restores that window. The pills
            carry only the bubble colour + count (no icon). -->
-      @if (minimizedWindows().length > 0) {
+      @if (wall.minimizedWindows().length > 0) {
         <div class="bubble-counts" aria-hidden="true">
-          @if (minimizedFolderCount() > 0) {
+          @if (wall.minimizedFolderCount() > 0) {
             <span class="bubble-count folder" matTooltip="Minimized folders">
-              {{ minimizedFolderCount() }}
+              {{ wall.minimizedFolderCount() }}
             </span>
           }
-          @if (minimizedNoteCount() > 0) {
+          @if (wall.minimizedNoteCount() > 0) {
             <span class="bubble-count note" matTooltip="Minimized notes">
-              {{ minimizedNoteCount() }}
+              {{ wall.minimizedNoteCount() }}
             </span>
           }
         </div>
-        <div class="bubble-stack" [class.fanned]="bubblesFanned()"
-             [style.height.px]="bubblesFanned() ? minimizedWindows().length * 76 + 8 : 48"
-             [style.width.px]="bubblesFanned() ? 180 : 48"
-             (mouseenter)="bubblesFanned.set(true)"
-             (mouseleave)="bubblesFanned.set(false)">
-          @for (b of minimizedWindows(); track b.id; let i = $index) {
+        <div class="bubble-stack" [class.fanned]="wall.bubblesFanned()"
+             [style.height.px]="wall.bubblesFanned() ? wall.minimizedWindows().length * 76 + 8 : 48"
+             [style.width.px]="wall.bubblesFanned() ? 180 : 48"
+             (mouseenter)="wall.bubblesFanned.set(true)"
+             (mouseleave)="wall.bubblesFanned.set(false)">
+          @for (b of wall.minimizedWindows(); track b.id; let i = $index) {
             <!-- A wrapper carries the per-bubble offset/scale; the restore button
                  fills the circle and a small ×, revealed on hover, closes it.
                  (Wrapper + two buttons avoids an invalid nested <button>.) -->
@@ -753,12 +636,12 @@
                  [class.folder]="b.kind === 'folder'" [class.note]="b.kind === 'note'"
                  [style.--i]="i">
               <button type="button" class="bubble-restore"
-                      (click)="restoreWindow(b.id)">
+                      (click)="wall.restoreWindow(b.id)">
                 <mat-icon>{{ b.kind === 'folder' ? 'folder' : 'sticky_note_2' }}</mat-icon>
               </button>
               <button type="button" class="bubble-close" matTooltip="Close"
                       aria-label="Close minimized item"
-                      (click)="closeMinimized(b.id)">
+                      (click)="wall.closeMinimized(b.id)">
                 <mat-icon>close</mat-icon>
               </button>
               <!-- Name tag under each bubble, revealed when the stack fans out. -->
@@ -784,14 +667,14 @@
 <div class="ctx-anchor" [style.left.px]="gridCtxPos().x" [style.top.px]="gridCtxPos().y"
      [matMenuTriggerFor]="gridCtxMenu" #gridCtxTrigger="matMenuTrigger"></div>
 <mat-menu #gridCtxMenu="matMenu">
-  <button mat-menu-item (click)="createAt(gridCtxCell())">
+  <button mat-menu-item (click)="wall.createAt(gridCtxCell())">
     <mat-icon>note_add</mat-icon><span>New note here</span>
   </button>
   <button mat-menu-item (click)="createRootFolder()">
     <mat-icon>create_new_folder</mat-icon><span>New folder</span>
   </button>
-  <button mat-menu-item (click)="toggleReorganize()">
-    <mat-icon>auto_awesome_mosaic</mat-icon><span>{{ reorganizing() ? 'Stop reorganizing' : 'Reorganize' }}</span>
+  <button mat-menu-item (click)="wall.toggleReorganize()">
+    <mat-icon>auto_awesome_mosaic</mat-icon><span>{{ wall.reorganizing() ? 'Stop reorganizing' : 'Reorganize' }}</span>
   </button>
 </mat-menu>
 <mat-menu #noteCtxMenu="matMenu">

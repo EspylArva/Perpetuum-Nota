@@ -6,13 +6,13 @@ import { forkJoin, switchMap } from 'rxjs';
 import type { ShareGrantDto, UserDto, Visibility } from '@perpetuum-nota/shared';
 import { NotesApi } from '../core/notes.api';
 import { UsersApi } from '../core/users.api';
+import { ModalShell } from '../shared-ui/modal-shell';
 
 @Component({
   selector: 'app-share-dialog',
-  imports: [MatButtonModule, MatCheckboxModule, MatRadioModule],
+  imports: [MatButtonModule, MatCheckboxModule, MatRadioModule, ModalShell],
   template: `
-    <div class="backdrop" (click)="cancel()">
-      <div class="dialog" (click)="$event.stopPropagation()">
+    <app-modal-shell (close)="cancel()">
         <h2>Share note</h2>
 
         @if (loading()) {
@@ -63,24 +63,10 @@ import { UsersApi } from '../core/users.api';
             {{ saving() ? 'Saving…' : 'Save' }}
           </button>
         </div>
-      </div>
-    </div>
+    </app-modal-shell>
   `,
   styles: [
     `
-      .backdrop {
-        position: fixed; inset: 0;
-        background: color-mix(in srgb, var(--mat-sys-scrim) 45%, transparent);
-        display: grid; place-items: center; z-index: 60; padding: 1.5rem;
-      }
-      .dialog {
-        width: min(460px, 100%);
-        background: var(--mat-sys-surface-container-high);
-        color: var(--mat-sys-on-surface);
-        border-radius: 16px;
-        padding: 1.25rem 1.4rem;
-        box-shadow: var(--mat-sys-level5);
-      }
       h2 { margin: 0 0 0.9rem; font-size: var(--sn-text-xl); }
       .vis { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.6rem; }
       .vis em { font-style: italic; opacity: 0.85; }

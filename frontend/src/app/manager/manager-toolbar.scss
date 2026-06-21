@@ -1,0 +1,34 @@
+:host { display: contents; }
+
+.bar {
+  flex-shrink: 0;
+  background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  gap: 0.25rem;
+
+  .brand { font-weight: 700; font-size: var(--sn-text-lg); }
+  /* The current user's name as a pill. Not interactive yet, but styled like a
+     chip/button so it can become a clickable account button later. */
+  .who {
+    display: inline-block;
+    font-size: var(--sn-text-sm);
+    font-weight: 600;
+    line-height: 1.2;
+    margin: 0 0.4rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    color: var(--mat-sys-on-secondary-container);
+    background: var(--mat-sys-secondary-container);
+    border: 1px solid var(--mat-sys-outline-variant);
+    white-space: nowrap;
+    max-width: 14rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+.spacer { flex: 1; }
+
+@media (max-width: 768px) {
+  .bar .who { display: none; }
+}

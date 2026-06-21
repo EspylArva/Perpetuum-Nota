@@ -12,14 +12,12 @@
  * Future timestamps clamp to "just now" so a clock skew never shows a negative.
  */
 
+import { toDate } from '../core/date-format';
+
 const SEC = 1000;
 const MIN = 60 * SEC;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
-
-function toDate(value: Date | string): Date {
-  return value instanceof Date ? value : new Date(value);
-}
 
 export function timeAgo(value: Date | string, now: Date = new Date()): string {
   const then = toDate(value);

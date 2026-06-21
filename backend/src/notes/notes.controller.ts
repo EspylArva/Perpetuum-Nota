@@ -24,7 +24,10 @@ import { SetTagsDto } from './dto/set-tags.dto';
 import { SetVisibilityDto } from './dto/set-visibility.dto';
 import { UpdateNoteContentDto } from './dto/update-note-content.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
-import { NoteFilter, NoteSort, NotesService } from './notes.service';
+import { NotesService } from './notes.service';
+import { NoteFilter, NoteSort, NotesQueryService } from './notes-query.service';
+import { NotesBatchService } from './notes-batch.service';
+import { NotesSharingService } from './notes-sharing.service';
 import { TagsService } from '../tags/tags.service';
 
 function normalizeFilter(value?: string): NoteFilter {
@@ -59,6 +62,9 @@ function parseFlag(value?: string): boolean {
 export class NotesController {
   constructor(
     private readonly notes: NotesService,
+    private readonly query: NotesQueryService,
+    private readonly batch: NotesBatchService,
+    private readonly sharing: NotesSharingService,
     private readonly tags: TagsService,
   ) {}
 
@@ -78,7 +84,7 @@ export class NotesController {
     @Query('dueBefore') dueBefore?: string,
     @Query('folderId') folderId?: string,
   ) {
-    return this.notes.listViewable(user.id, {
+    return this.query.listViewable(user.id, {
       filter: normalizeFilter(filter),
       q,
       tag,
@@ -99,7 +105,7 @@ export class NotesController {
   // Declared before ':id' so "graph" isn't captured as a note id.
   @Get('graph')
   graph(@CurrentUser() user: AuthenticatedUser) {
-    return this.notes.graph(user.id);
+    return this.query.graph(user.id);
   }
 
   @Post('batch-delete')
@@ -108,7 +114,7 @@ export class NotesController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: BatchDeleteDto,
   ) {
-    return this.notes.batchDelete(user.id, dto.ids);
+    return this.batch.batchDelete(user.id, dto.ids);
   }
 
   // Data management: collect the selected scopes of notes (with content) for a
@@ -120,7 +126,7 @@ export class NotesController {
     @Query('shared') shared?: string,
     @Query('public') pub?: string,
   ) {
-    const notes = await this.notes.exportNotes(user.id, {
+    const notes = await this.batch.exportNotes(user.id, {
       mine: parseFlag(mine),
       shared: parseFlag(shared),
       public: parseFlag(pub),
@@ -139,7 +145,7 @@ export class NotesController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: ImportNotesDto,
   ) {
-    return this.notes.importNotes(user.id, dto.notes);
+    return this.batch.importNotes(user.id, dto.notes);
   }
 
   // No NoteAccessGuard: the service self-filters to notes the user owns.
@@ -149,13 +155,13 @@ export class NotesController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: ReorderNotesDto,
   ) {
-    return this.notes.reorder(user.id, dto.orderedIds);
+    return this.batch.reorder(user.id, dto.orderedIds);
   }
 
   @Post('trash/empty')
   @HttpCode(200)
   emptyTrash(@CurrentUser() user: AuthenticatedUser) {
-    return this.notes.emptyTrash(user.id);
+    return this.batch.emptyTrash(user.id);
   }
 
   @Get(':id')
@@ -232,14 +238,14 @@ export class NotesController {
   @UseGuards(NoteAccessGuard)
   @NoteAccess('manage')
   setVisibility(@Param('id') id: string, @Body() dto: SetVisibilityDto) {
-    return this.notes.setVisibility(id, dto.visibility);
+    return this.sharing.setVisibility(id, dto.visibility);
   }
 
   @Get(':id/shares')
   @UseGuards(NoteAccessGuard)
   @NoteAccess('manage')
   getShares(@Param('id') id: string) {
-    return this.notes.getShares(id);
+    return this.sharing.getShares(id);
   }
 
   @Put(':id/shares')
@@ -250,6 +256,6 @@ export class NotesController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: SetSharesDto,
   ) {
-    return this.notes.setShares(id, user.id, dto.grants);
+    return this.sharing.setShares(id, user.id, dto.grants);
   }
 }

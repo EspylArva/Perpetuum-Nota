@@ -573,15 +573,6 @@
   .pinned { color: var(--mat-sys-primary); }
 }
 
-.pane-meta {
-  padding: 0.3rem 0.85rem;
-  font-size: var(--sn-text-xs); color: var(--mat-sys-on-surface-variant);
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
-  background: var(--mat-sys-surface-container-low);
-}
-
-.pane app-note-editor, .modal app-note-editor { flex: 1; min-height: 0; display: flex; }
-
 .title-input {
   flex: 1; min-width: 0;
   border: none; background: transparent;
@@ -601,58 +592,6 @@
   border-radius: 999px;
   padding: 0.08rem 0.5rem;
   white-space: nowrap;
-}
-
-/* Linked-note pills (wikilinks): tag-chip shape, distinct tertiary accent so
-   note-to-note links read differently from tags. Theme-aware (light + dark).
-   Shares the tag-editor bar layout. */
-.link-chip {
-  gap: 0.15rem; text-decoration: none; cursor: pointer;
-  color: var(--mat-sys-on-tertiary-container);
-  background: var(--mat-sys-tertiary-container);
-
-  &:hover { filter: brightness(1.05); }
-  &:focus-visible { outline: 2px solid var(--mat-sys-tertiary); }
-  .link-ico { font-size: 0.85rem; width: 0.85rem; height: 0.85rem; }
-}
-.links-bar,
-.tag-editor {
-  display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
-  padding: 0.35rem 0.75rem;
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
-  background: var(--mat-sys-surface-container-low);
-}
-.tag-editor {
-  .tag-input {
-    flex: 1 1 110px; min-width: 110px;
-    border: none; background: transparent;
-    font-size: var(--sn-text-sm); color: var(--mat-sys-on-surface);
-    outline: none; padding: 0.35rem 0;
-    &::placeholder { color: var(--mat-sys-on-surface-variant); }
-  }
-
-  /* Deterministic tag tint on the edition chips, matching the list/wall pills.
-     Material paints the chip surface via the `--mdc-chip-elevated-container-color`
-     token on the host, which would otherwise cover the host inline background.
-     Setting that token (and the hover/focus overlay) to transparent lets the
-     host's inline `[style.background]`/`[style.color]` (tagColor) show through.
-     The matChipRemove (x) inherits the chip's foreground so it stays legible. */
-  ::ng-deep mat-chip-row.tag-chip-row {
-    --mdc-chip-elevated-container-color: transparent;
-    --mdc-chip-elevated-disabled-container-color: transparent;
-    --mdc-chip-label-text-color: inherit;
-    --mdc-chip-with-trailing-icon-trailing-icon-color: currentColor;
-    --mdc-chip-with-icon-icon-color: currentColor;
-
-    .mat-mdc-chip-focus-overlay { background: transparent; }
-    .mdc-evolution-chip__text-label,
-    .mat-mdc-chip-action-label { color: inherit; }
-    .mat-mdc-chip-remove {
-      color: currentColor;
-      opacity: 0.85;
-      &:hover { opacity: 1; }
-    }
-  }
 }
 
 .badge {
@@ -688,23 +627,6 @@
     background: color-mix(in srgb, var(--mat-sys-error) 16%, var(--mat-sys-surface-container));
     color: var(--mat-sys-error);
   }
-}
-
-/* Due-date control inside the note metadata (tag) editor. */
-.due-control {
-  display: inline-flex; align-items: center; gap: 0.1rem;
-  flex: 0 0 auto;
-  padding-left: 0.4rem;
-  border-left: 1px solid var(--mat-sys-outline-variant);
-
-  .due-ico { font-size: 1.05rem; width: 1.05rem; height: 1.05rem; color: var(--mat-sys-on-surface-variant); }
-  .due-input {
-    width: 110px; border: none; background: transparent; cursor: pointer;
-    font-size: var(--sn-text-sm); color: var(--mat-sys-on-surface);
-    outline: none; padding: 0.35rem 0.2rem;
-    &::placeholder { color: var(--mat-sys-on-surface-variant); }
-  }
-  .due-pick, .due-clear { opacity: 0.55; &:hover { opacity: 1; } }
 }
 
 /* ---- mobile ---- */

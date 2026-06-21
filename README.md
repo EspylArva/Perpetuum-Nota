@@ -5,8 +5,8 @@ with formatting, lists, checklists, code, LaTeX math, clickable URLs, `[[note]]`
 cross-links, and pasteable resizable inline images. Organize with tags, folders,
 pins, due dates and a sidebar calendar; browse as a list, a spatial wall, or a
 link graph. Multi-user with per-note privacy/sharing, full-text search, and a
-trash with 30-day retention. See [PLAN.md](PLAN.md) for the full design and
-[REVIEW.md](REVIEW.md) for the hardening history.
+trash with 30-day retention. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for
+the contributor reference (stack, data model, module map, auth model, topology).
 
 ## Features
 - **Editor:** bold/italic/underline/strike, H1/H2, bulleted/numbered lists,
@@ -61,7 +61,7 @@ docker/     nginx config + front-door image (also builds the SPA)
 ## Run (Docker)
 ```bash
 cp .env.example .env   # then edit secrets
-docker compose up --build
+npm run up             # docker compose up --build (npm run down to stop)
 ```
 The app is served on a single URL (default `http://localhost:8080`).
 
@@ -73,13 +73,12 @@ runbook — push, secrets, first run, backups, updates — is in [DEPLOY.md](DEP
 ## Develop (native, recommended on Windows)
 Run Postgres in Docker, the apps natively (faster reload than bind-mounts):
 ```bash
-docker compose -f docker-compose.dev.yml up -d   # postgres only
-npm install                                       # root workspaces
-# backend
-cd backend && npm run start:dev
-# frontend (new terminal)
-cd frontend && npm start
+npm install        # root workspaces
+npm run dev:db     # postgres only (docker-compose.dev.yml; npm run dev:db:down to stop)
+npm run dev:api    # backend (NestJS, watch mode)
+npm run dev:web    # frontend (Angular dev server) — in a second terminal
 ```
+Production builds: `npm run build:backend` and `npm run build:frontend`.
 
 ## Tests
 ```bash

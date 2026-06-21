@@ -1,0 +1,27 @@
+<mat-toolbar class="bar">
+  @if (isHandset()) {
+    <button matIconButton (click)="toggleSidebar.emit()" aria-label="Menu">
+      <mat-icon>menu</mat-icon>
+    </button>
+  }
+  @if (!isHandset()) {
+    <button matIconButton (click)="sidenav.toggle()"
+            [matTooltip]="sidenav.collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+            aria-label="Toggle sidebar">
+      <mat-icon>{{ sidenav.collapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+    </button>
+  }
+  <span class="brand">Perpetuum Nota</span>
+  <span class="spacer"></span>
+  <button matIconButton (click)="theme.toggle()"
+          [matTooltip]="theme.mode() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
+    <mat-icon>{{ theme.mode() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+  </button>
+  <a matIconButton routerLink="/settings" matTooltip="Settings" aria-label="Settings">
+    <mat-icon>settings</mat-icon>
+  </a>
+  @if (userName(); as name) {
+    <span class="who">{{ name }}</span>
+  }
+  <button matButton (click)="logout.emit()">Sign out</button>
+</mat-toolbar>

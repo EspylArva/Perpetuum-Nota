@@ -1,10 +1,11 @@
 import {
   HttpClient,
+  HttpErrorResponse,
   HttpEvent,
   HttpInterceptorFn,
 } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { Observable, from, switchMap } from 'rxjs';
+import { Observable, catchError, from, switchMap, throwError } from 'rxjs';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const CSRF_COOKIE = 'csrf_token';
@@ -31,7 +32,7 @@ export const csrfInterceptor: HttpInterceptorFn = (req, next) => {
 
   const http = inject(HttpClient);
 
-  const attach = (): Observable<HttpEvent<unknown>> => {
+  const send = (): Observable<HttpEvent<unknown>> => {
     const token = readCookie(CSRF_COOKIE);
     const r = token
       ? req.clone({
@@ -42,19 +43,32 @@ export const csrfInterceptor: HttpInterceptorFn = (req, next) => {
     return next(r);
   };
 
-  if (readCookie(CSRF_COOKIE)) {
-    return attach();
-  }
+  // Fetch (deduped) a fresh token; GET /auth/csrf overwrites a stale cookie.
+  const refreshThenSend = (): Observable<HttpEvent<unknown>> => {
+    if (!tokenFetch) {
+      tokenFetch = http
+        .get('/api/auth/csrf', { withCredentials: true })
+        .toPromise()
+        .then(() => undefined)
+        .finally(() => {
+          tokenFetch = null;
+        });
+    }
+    return from(tokenFetch).pipe(switchMap(send));
+  };
 
-  // No token yet — fetch one (deduped), then proceed.
-  if (!tokenFetch) {
-    tokenFetch = http
-      .get('/api/auth/csrf', { withCredentials: true })
-      .toPromise()
-      .then(() => undefined)
-      .finally(() => {
-        tokenFetch = null;
-      });
-  }
-  return from(tokenFetch).pipe(switchMap(() => attach()));
+  const first = readCookie(CSRF_COOKIE) ? send() : refreshThenSend();
+
+  // A present-but-stale cookie (the signing secret rotated on a server restart)
+  // is still echoed and fails HMAC validation → 403 EBADCSRFTOKEN. Refetch once
+  // and retry so mutations self-heal instead of dying until the user clears
+  // cookies. One retry only (the retried send isn't wrapped) → no loop.
+  // ponytail: gate on 403 alone; an unrelated 403 just costs one wasted refetch.
+  return first.pipe(
+    catchError((err) =>
+      err instanceof HttpErrorResponse && err.status === 403
+        ? refreshThenSend()
+        : throwError(() => err),
+    ),
+  );
 };
