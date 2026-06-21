@@ -1,5 +1,8 @@
 # Perpetuum Nota
 
+> Disclaimer: This project *heavily* involves usage of AI (Anthropic's Claude) to generate code. If you are uncomfortable with AI usage, be warned.
+> If the app contains some of your asset, code, etc. and you are not credited, or wish for me to remove this content, please contact me or open an issue ticket.
+
 A self-hosted, dockerized notes app (Evernote / Obsidian-style). Rich-text notes
 with formatting, lists, checklists, code, LaTeX math, clickable URLs, `[[note]]`
 cross-links, and pasteable resizable inline images. Organize with tags, folders,
