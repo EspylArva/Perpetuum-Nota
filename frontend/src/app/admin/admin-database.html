@@ -1,0 +1,46 @@
+<section class="card danger">
+  <h2><mat-icon class="warn-icon">warning</mat-icon> Rinse database</h2>
+  <p class="hint">
+    Permanently deletes <strong>all content</strong> — every note, folder, tag,
+    share, link, and image across every account. User accounts and passwords are
+    kept. There is no trash and no undo.
+  </p>
+
+  @if (stats(); as s) {
+    <dl class="stats">
+      <div><dt>Notes</dt><dd>{{ s.notes }}</dd></div>
+      <div><dt>Folders</dt><dd>{{ s.folders }}</dd></div>
+      <div><dt>Tags</dt><dd>{{ s.tags }}</dd></div>
+      <div><dt>Shares</dt><dd>{{ s.shares }}</dd></div>
+      <div><dt>Links</dt><dd>{{ s.links }}</dd></div>
+      <div><dt>Images</dt><dd>{{ s.images }}</dd></div>
+      <div class="kept"><dt>Users (kept)</dt><dd>{{ s.users }}</dd></div>
+    </dl>
+  } @else {
+    <p class="muted">Database stats are unavailable.</p>
+  }
+
+  <div class="confirm">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Type {{ phrase }} to confirm</mat-label>
+      <input
+        matInput
+        [ngModel]="confirmText()"
+        (ngModelChange)="confirmText.set($event)"
+        [placeholder]="phrase"
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="Type the confirmation phrase to enable the rinse button"
+      />
+    </mat-form-field>
+    <button
+      matButton="filled"
+      class="destructive"
+      [disabled]="!canRinse()"
+      (click)="rinse()"
+    >
+      <mat-icon>delete_sweep</mat-icon>
+      {{ rinsing() ? 'Rinsing…' : 'Rinse database' }}
+    </button>
+  </div>
+</section>

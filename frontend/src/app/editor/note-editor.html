@@ -1,4 +1,4 @@
-<div class="note-editor">
+<div class="note-editor" [class.fullscreen]="fullscreen()">
   @if (conflicted()) {
     <div class="conflict-banner" role="alert">
       <span>This note was changed in another window.</span>
@@ -21,8 +21,40 @@
         <mat-icon>strikethrough_s</mat-icon>
       </button>
       <span class="sep"></span>
-      <button matIconButton class="h-btn" matTooltip="Heading 1" [class.active]="isActive('heading', { level: 1 })" (click)="toggleHeading(1)">H1</button>
-      <button matIconButton class="h-btn" matTooltip="Heading 2" [class.active]="isActive('heading', { level: 2 })" (click)="toggleHeading(2)">H2</button>
+      <!-- Heading split button: primary action toggles the current (or default
+           H1) level; the attached caret opens a menu offering H1–H5. Mirrors the
+           export split button so the two read as the same kind of control. -->
+      <div class="heading-split">
+        <button
+          type="button"
+          class="heading-main"
+          [class.active]="headingLevel() !== null"
+          [matTooltip]="'Heading ' + (headingLevel() ?? 1)"
+          (click)="toggleHeading(headingLevel() ?? 1)"
+        >H{{ headingLevel() ?? 1 }}</button>
+        <span class="heading-divider"></span>
+        <button
+          type="button"
+          class="heading-caret"
+          matTooltip="Heading level"
+          aria-label="Heading level"
+          [matMenuTriggerFor]="headingMenu"
+        >
+          <mat-icon>arrow_drop_down</mat-icon>
+        </button>
+      </div>
+      <mat-menu #headingMenu="matMenu">
+        @for (lvl of headingLevels; track lvl) {
+          <button mat-menu-item [class.active]="headingLevel() === lvl" (click)="toggleHeading(lvl)">
+            <span class="menu-h" [attr.data-level]="lvl">H{{ lvl }}</span>
+            <span>Heading {{ lvl }}</span>
+          </button>
+        }
+      </mat-menu>
+      <button matIconButton class="plain-btn" matTooltip="Plain text (clear formatting)"
+              aria-label="Plain text" (click)="clearFormatting()">
+        <mat-icon>format_clear</mat-icon>
+      </button>
       <span class="sep"></span>
       <button matIconButton matTooltip="Bulleted list" [class.active]="isActive('bulletList')" (click)="toggleBulletList()">
         <mat-icon>format_list_bulleted</mat-icon>
@@ -36,6 +68,57 @@
       <button matIconButton matTooltip="Code block" [class.active]="isActive('codeBlock')" (click)="toggleCodeBlock()">
         <mat-icon>code</mat-icon>
       </button>
+      <button matIconButton class="code-btn" matTooltip="Inline code" [class.active]="isActive('code')" (click)="toggleCode()">&lt;/&gt;</button>
+      <span class="sep"></span>
+      <button
+        matIconButton
+        matTooltip="Table"
+        aria-label="Table options"
+        [class.active]="inTable()"
+        [matMenuTriggerFor]="tableMenu"
+      >
+        <mat-icon>grid_on</mat-icon>
+      </button>
+      <mat-menu #tableMenu="matMenu">
+        <button mat-menu-item aria-label="Insert table" (click)="insertTable()">
+          <mat-icon>grid_on</mat-icon>
+          <span>Insert table</span>
+        </button>
+        @if (inTable()) {
+          <button mat-menu-item aria-label="Insert row above" (click)="addRowBefore()">
+            <mat-icon>add</mat-icon>
+            <span>Insert row above</span>
+          </button>
+          <button mat-menu-item aria-label="Insert row below" (click)="addRowAfter()">
+            <mat-icon>add</mat-icon>
+            <span>Insert row below</span>
+          </button>
+          <button mat-menu-item aria-label="Delete row" (click)="deleteRow()">
+            <mat-icon>remove</mat-icon>
+            <span>Delete row</span>
+          </button>
+          <button mat-menu-item aria-label="Insert column left" (click)="addColumnBefore()">
+            <mat-icon>add</mat-icon>
+            <span>Insert column left</span>
+          </button>
+          <button mat-menu-item aria-label="Insert column right" (click)="addColumnAfter()">
+            <mat-icon>add</mat-icon>
+            <span>Insert column right</span>
+          </button>
+          <button mat-menu-item aria-label="Delete column" (click)="deleteColumn()">
+            <mat-icon>remove</mat-icon>
+            <span>Delete column</span>
+          </button>
+          <button mat-menu-item aria-label="Toggle header row" (click)="toggleHeaderRow()">
+            <mat-icon>table_rows</mat-icon>
+            <span>Toggle header row</span>
+          </button>
+          <button mat-menu-item aria-label="Delete table" (click)="deleteTable()">
+            <mat-icon>delete_outline</mat-icon>
+            <span>Delete table</span>
+          </button>
+        }
+      </mat-menu>
       <span class="sep"></span>
       <button matIconButton matTooltip="Text color" [matMenuTriggerFor]="colorMenu">
         <mat-icon>format_color_text</mat-icon>
@@ -70,12 +153,14 @@
       <button matIconButton matTooltip="Link" [class.active]="isActive('link')" (click)="setLink()">
         <mat-icon>link</mat-icon>
       </button>
-      <!-- Export split button: primary action = Markdown; arrow opens format menu -->
+      <!-- Export split button: one cohesive unit — primary action = Markdown;
+           a thin divider separates the attached caret that opens the format menu. -->
       <div class="export-split">
-        <button matIconButton matTooltip="Export as Markdown" (click)="exportMarkdown()">
+        <button type="button" class="export-main" matTooltip="Export as Markdown" (click)="exportMarkdown()">
           <mat-icon>download</mat-icon>
         </button>
-        <button matIconButton matTooltip="Export options" [matMenuTriggerFor]="exportMenu" class="export-arrow">
+        <span class="export-divider"></span>
+        <button type="button" class="export-caret" matTooltip="Export options" [matMenuTriggerFor]="exportMenu">
           <mat-icon>arrow_drop_down</mat-icon>
         </button>
       </div>
@@ -89,28 +174,53 @@
           <span>HTML (.html)</span>
         </button>
       </mat-menu>
-      <!-- TOC toggle -->
-      <button matIconButton matTooltip="Table of contents" [class.active]="tocVisible()" (click)="toggleToc()">
-        <mat-icon>toc</mat-icon>
+      <!-- Fullscreen toggle -->
+      <button matIconButton [matTooltip]="fullscreen() ? 'Exit fullscreen' : 'Fullscreen'" [class.active]="fullscreen()" (click)="toggleFullscreen()">
+        <mat-icon>{{ fullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
       </button>
       <span class="spacer"></span>
       <span class="status">{{ status() }}</span>
     </div>
   }
   <div class="editor-body">
-    @if (tocVisible() && tocEntries().length > 0) {
-      <nav class="toc-panel" aria-label="Table of contents">
-        <div class="toc-heading">Contents</div>
-        @for (entry of tocEntries(); track entry.pos) {
-          <button
-            type="button"
-            class="toc-entry"
-            [style.padding-left.rem]="0.5 + (entry.level - 1) * 0.75"
-            (click)="navigateToHeading(entry)"
-          >{{ entry.text }}</button>
-        }
-      </nav>
+    @if (tocEntries().length > 0) {
+      @if (tocExpanded()) {
+        <nav class="toc-panel" aria-label="Table of contents">
+          <div class="toc-header">
+            <span class="toc-heading">Contents</span>
+            <button
+              matIconButton
+              class="toc-collapse"
+              matTooltip="Minimize contents"
+              aria-label="Minimize table of contents"
+              (click)="toggleToc()"
+            >
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+          </div>
+          @for (entry of tocNumbered(); track entry.pos) {
+            <button
+              type="button"
+              class="toc-entry"
+              [style.padding-left.rem]="0.5 + (entry.level - 1) * 0.75"
+              (click)="navigateToHeading(entry)"
+            >@if (entry.num) {<span class="toc-num">{{ entry.num }}</span> }{{ entry.text }}</button>
+          }
+        </nav>
+      } @else {
+        <button
+          type="button"
+          class="toc-strip"
+          matTooltip="Show table of contents"
+          aria-label="Expand table of contents"
+          (click)="toggleToc()"
+        >
+          <mat-icon class="toc-strip-icon">toc</mat-icon>
+          <span class="toc-strip-label">Contents</span>
+          <mat-icon class="toc-strip-chevron">chevron_right</mat-icon>
+        </button>
+      }
     }
-    <div class="surface" tiptap [editor]="editor"></div>
+    <div class="surface" [class.numbered-headings]="numberedHeadings()" tiptap [editor]="editor"></div>
   </div>
 </div>

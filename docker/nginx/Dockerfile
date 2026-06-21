@@ -12,6 +12,8 @@ RUN npm run build --workspace frontend
 
 # ---------- nginx front door ----------
 FROM nginx:alpine
+LABEL org.opencontainers.image.description="Perpetuum Nota web — Angular SPA served by nginx (single public front door, proxies /api to the backend)." \
+      org.opencontainers.image.source="https://github.com/EspylArva/Perpetuum-Nota"
 COPY docker/nginx/nginx.conf /etc/nginx/conf.d/default.conf
 # Angular application builder emits browser assets under dist/frontend/browser
 COPY --from=build /app/frontend/dist/frontend/browser /usr/share/nginx/html

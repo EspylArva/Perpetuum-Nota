@@ -5,6 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 export interface LoadedNoteAccess {
   note: { ownerId: string; visibility: Visibility } | null;
   shared: boolean;
+  /** True only for an editor grant (canEdit) on a PRIVATE note. */
+  canEdit: boolean;
 }
 
 /**
@@ -25,22 +27,25 @@ export class NoteAccessService {
       where: { id: noteId },
       select: { ownerId: true, visibility: true, deletedAt: true },
     });
-    if (!note) return { note: null, shared: false };
+    if (!note) return { note: null, shared: false, canEdit: false };
     if (note.deletedAt !== null && note.ownerId !== userId) {
-      return { note: null, shared: false };
+      return { note: null, shared: false, canEdit: false };
     }
 
     let shared = false;
+    let canEdit = false;
     if (note.ownerId !== userId && note.visibility === 'PRIVATE') {
       const grant = await this.prisma.noteShare.findUnique({
         where: { noteId_userId: { noteId, userId } },
-        select: { noteId: true },
+        select: { canEdit: true },
       });
       shared = grant !== null;
+      canEdit = grant?.canEdit ?? false;
     }
     return {
       note: { ownerId: note.ownerId, visibility: note.visibility },
       shared,
+      canEdit,
     };
   }
 }

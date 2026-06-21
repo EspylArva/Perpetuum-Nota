@@ -4,6 +4,16 @@
   height: 100%;
   min-height: 0;
   flex-grow: 1;
+
+  // Fullscreen: pin to the viewport above the app toolbar + floating note
+  // windows (which start at z-index 60 and climb as they're raised). The
+  // flex column above keeps the toolbar fixed and the body scrolling.
+  &.fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: var(--mat-sys-surface);
+  }
 }
 
 .conflict-banner {
@@ -15,7 +25,7 @@
   background: var(--mat-sys-error-container);
   border-bottom: 1px solid var(--mat-sys-error);
   color: var(--mat-sys-on-error-container);
-  font-size: 0.85rem;
+  font-size: var(--sn-text-sm);
 
   .keep {
     --mat-button-filled-container-color: var(--mat-sys-error);
@@ -37,27 +47,160 @@
     color: var(--mat-sys-on-secondary-container);
     border-radius: 50%;
   }
-  .h-btn { font-size: 0.8rem; font-weight: 700; }
+  .h-btn { font-size: var(--sn-text-sm); font-weight: 700; }
+  .code-btn { font-size: var(--sn-text-sm); font-weight: 700; font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace; }
   .sep { width: 1px; height: 20px; background: var(--mat-sys-outline-variant); margin: 0 0.25rem; }
   .spacer { flex: 1; }
-  .status { font-size: 0.75rem; color: var(--mat-sys-on-surface-variant); padding-right: 0.3rem; }
+  .status { font-size: var(--sn-text-xs); color: var(--mat-sys-on-surface-variant); padding-right: 0.3rem; }
 }
 
-// Export split button: primary download + small arrow for format menu.
+// Export split button: ONE cohesive contained unit — a primary Markdown action
+// and an attached caret divided by a thin separator, inside a single bordered,
+// rounded container. Reads as a single component, not two loose icon buttons.
 .export-split {
-  display: flex;
-  align-items: center;
+  display: inline-flex;
+  align-items: stretch;
+  height: 32px;
+  margin: 0 0.15rem;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container);
+  overflow: hidden;
 
-  .export-arrow {
-    width: 20px;
-    min-width: 20px;
+  // Unset native button chrome so the two halves read as one control.
+  .export-main,
+  .export-caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
     padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--mat-sys-on-surface-variant);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
 
-    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      line-height: 18px;
+    }
+
+    &:hover {
+      background: var(--mat-sys-secondary-container);
+      color: var(--mat-sys-on-secondary-container);
+    }
+
+    // Single cohesive focus treatment that respects the unified rounding.
+    &:focus-visible {
+      outline: none;
+      background: var(--mat-sys-secondary-container);
+      color: var(--mat-sys-on-secondary-container);
+    }
+  }
+
+  .export-main { width: 34px; }
+  .export-caret { width: 22px; }
+
+  // 1px divider between the primary action and the caret.
+  .export-divider {
+    width: 1px;
+    align-self: stretch;
+    margin: 5px 0;
+    background: var(--mat-sys-outline-variant);
+  }
+
+  // Unified hover lift on the whole unit.
+  &:hover {
+    border-color: var(--mat-sys-outline);
   }
 }
 
-// Editor body: TOC panel sits to the left of the writing surface.
+// Heading split button: same contained-unit treatment as the export split — a
+// primary "toggle current/H1" action and an attached caret that opens the
+// H1–H5 level menu.
+.heading-split {
+  display: inline-flex;
+  align-items: stretch;
+  height: 32px;
+  margin: 0 0.15rem;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container);
+  overflow: hidden;
+
+  .heading-main,
+  .heading-caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--mat-sys-on-surface-variant);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      line-height: 18px;
+    }
+
+    &:hover,
+    &:focus-visible {
+      outline: none;
+      background: var(--mat-sys-secondary-container);
+      color: var(--mat-sys-on-secondary-container);
+    }
+  }
+
+  .heading-main {
+    width: 34px;
+    font-size: var(--sn-text-sm);
+    font-weight: 700;
+
+    // Active = the selection sits in a heading; tint the primary half.
+    &.active {
+      background: var(--mat-sys-secondary-container);
+      color: var(--mat-sys-on-secondary-container);
+    }
+  }
+  .heading-caret { width: 22px; }
+
+  .heading-divider {
+    width: 1px;
+    align-self: stretch;
+    margin: 5px 0;
+    background: var(--mat-sys-outline-variant);
+  }
+
+  &:hover {
+    border-color: var(--mat-sys-outline);
+  }
+}
+
+// Heading menu rows: a sized "H1"…"H5" glyph next to the label so each level's
+// relative weight reads at a glance.
+.menu-h {
+  display: inline-block;
+  width: 2.2em;
+  font-weight: 700;
+  color: var(--mat-sys-on-surface);
+
+  &[data-level='1'] { font-size: var(--sn-text-xl); }
+  &[data-level='2'] { font-size: var(--sn-text-lg); }
+  &[data-level='3'] { font-size: var(--sn-text-md); }
+  &[data-level='4'] { font-size: var(--sn-text-base); }
+  &[data-level='5'] { font-size: var(--sn-text-sm); }
+}
+
+// Editor body: TOC nav bar (expanded panel OR minimized strip) sits to the left
+// of the writing surface.
 .editor-body {
   display: flex;
   flex: 1;
@@ -65,7 +208,41 @@
   overflow: hidden;
 }
 
-// Table of contents side panel.
+// Minimized state: a slim vertical strip that expands the ToC on click.
+.toc-strip {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: 36px;
+  padding: 0.6rem 0;
+  border: none;
+  border-right: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container-low);
+  color: var(--mat-sys-on-surface-variant);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  .toc-strip-icon { font-size: 20px; width: 20px; height: 20px; }
+  .toc-strip-chevron { font-size: 18px; width: 18px; height: 18px; margin-top: auto; }
+
+  // Vertical "Contents" label so the strip stays narrow.
+  .toc-strip-label {
+    writing-mode: vertical-rl;
+    font-size: var(--sn-text-2xs);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  &:hover {
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+  }
+}
+
+// Expanded state: the heading-entry list with a header row.
 .toc-panel {
   width: 200px;
   min-width: 160px;
@@ -76,13 +253,42 @@
   border-right: 1px solid var(--mat-sys-outline-variant);
   background: var(--mat-sys-surface-container-low);
 
+  .toc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0.4rem 0.25rem 0.75rem;
+  }
+
   .toc-heading {
-    font-size: 0.7rem;
+    font-size: var(--sn-text-2xs);
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--mat-sys-on-surface-variant);
-    padding: 0.25rem 0.75rem 0.5rem;
+  }
+
+  .toc-collapse {
+    // Shrink the whole control — state layer included — to 28px so Material's
+    // internal padding (sized for the 40px default) doesn't push the glyph
+    // off-centre. Then flex-centre the icon within it.
+    --mdc-icon-button-state-layer-size: 28px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--mat-sys-on-surface-variant);
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      line-height: 18px;
+      margin: 0;
+    }
   }
 
   .toc-entry {
@@ -92,7 +298,7 @@
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: var(--sn-text-sm);
     line-height: 1.4;
     color: var(--mat-sys-on-surface);
     padding: 0.2rem 0.5rem;
@@ -105,6 +311,13 @@
       background: var(--mat-sys-secondary-container);
       color: var(--mat-sys-on-secondary-container);
     }
+
+    // Outline number prefix, shown only when "Number headings" is on.
+    .toc-num {
+      color: var(--mat-sys-on-surface-variant);
+      font-variant-numeric: tabular-nums;
+      margin-right: 0.35em;
+    }
   }
 }
 
@@ -115,17 +328,76 @@
   padding: 1rem 1.25rem;
   background: var(--mat-sys-surface);
 
+  // Automatic outline numbering (Preferences → "Number headings"). Pure CSS
+  // counters: a display layer only — nothing is written into the document, so
+  // Markdown/HTML exports stay number-free. Sub-counters reset under each
+  // higher heading to give 1 / 1.1 / 1.1.1 hierarchical numbers.
+  &.numbered-headings ::ng-deep .ProseMirror {
+    // Only seed the top-level counter here. Each heading creates the fresh
+    // scope for its own sub-counters (h1 resets sn-h2…), so a new h1 restarts
+    // the h2 numbering. Pre-resetting the deeper counters on this parent would
+    // make them document-scoped and they'd never restart (1.1, 1.2, … 2.3, 2.4).
+    counter-reset: sn-h1;
+
+    h1 { counter-increment: sn-h1; counter-reset: sn-h2 sn-h3 sn-h4 sn-h5; }
+    h2 { counter-increment: sn-h2; counter-reset: sn-h3 sn-h4 sn-h5; }
+    h3 { counter-increment: sn-h3; counter-reset: sn-h4 sn-h5; }
+    h4 { counter-increment: sn-h4; counter-reset: sn-h5; }
+    h5 { counter-increment: sn-h5; }
+
+    h1::before { content: counter(sn-h1) ". "; }
+    h2::before { content: counter(sn-h1) "." counter(sn-h2) ". "; }
+    h3::before { content: counter(sn-h1) "." counter(sn-h2) "." counter(sn-h3) ". "; }
+    h4::before { content: counter(sn-h1) "." counter(sn-h2) "." counter(sn-h3) "." counter(sn-h4) ". "; }
+    h5::before { content: counter(sn-h1) "." counter(sn-h2) "." counter(sn-h3) "." counter(sn-h4) "." counter(sn-h5) ". "; }
+
+    h1, h2, h3, h4, h5 {
+      &::before { color: var(--mat-sys-on-surface-variant); margin-right: 0.4em; font-weight: 600; }
+    }
+  }
+
   ::ng-deep .ProseMirror {
     outline: none;
     min-height: 100%;
     color: var(--mat-sys-on-surface);
     line-height: 1.55;
 
-    h1 { font-size: 1.5rem; margin: 0.4em 0 0.3em; }
-    h2 { font-size: 1.2rem; margin: 0.4em 0 0.3em; }
+    h1 { font-size: var(--sn-text-3xl); margin: 0.4em 0 0.3em; }
+    h2 { font-size: var(--sn-text-xl); margin: 0.4em 0 0.3em; }
+    h3 { font-size: var(--sn-text-lg); margin: 0.4em 0 0.3em; }
+    h4 { font-size: var(--sn-text-md); margin: 0.4em 0 0.3em; }
+    h5 { font-size: var(--sn-text-base); font-weight: 700; margin: 0.4em 0 0.3em; }
     p { margin: 0.4em 0; }
     ul, ol { padding-left: 1.4rem; margin: 0.4em 0; }
     a { color: var(--mat-sys-primary); text-decoration: underline; cursor: pointer; }
+
+    // Inline `[[wikilinks]]` — rendered by the atomic WikiLinkNode's node view as
+    // a self-contained PILL in the tertiary accent so they read distinctly from
+    // regular links (primary) and tags. The node is non-editable (the node view
+    // sets contenteditable=false); clicking it navigates.
+    .wikilink {
+      display: inline;
+      color: var(--mat-sys-tertiary);
+      background: color-mix(in srgb, var(--mat-sys-tertiary) 14%, transparent);
+      border-radius: 999px;
+      padding: 0.05em 0.5em;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+      user-select: none;
+
+      &:hover {
+        background: color-mix(in srgb, var(--mat-sys-tertiary) 24%, transparent);
+      }
+
+      // The atom node carries the ProseMirror-selected outline when picked via
+      // keyboard/click-drag; give it a clear focus ring on the pill shape.
+      &.ProseMirror-selectednode {
+        outline: 2px solid var(--mat-sys-tertiary);
+        outline-offset: 1px;
+      }
+    }
 
     // Task lists (checkboxes)
     ul[data-type='taskList'] {
@@ -153,10 +425,61 @@
       color: var(--mat-sys-on-surface-variant);
     }
 
-    // Inline code.
+    // Tables (TableKit). Fixed layout + collapsed borders so cells line up and
+    // column resizing behaves; header cells get a surface-container tint. The
+    // `.tableWrapper` div wraps resizable tables — allow it to scroll narrow.
+    .tableWrapper { overflow-x: auto; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 0.6em 0;
+      table-layout: fixed;
+      overflow: hidden;
+
+      th, td {
+        border: 1px solid var(--mat-sys-outline-variant);
+        padding: 0.35em 0.55em;
+        vertical-align: top;
+        position: relative;
+      }
+      th {
+        background: var(--mat-sys-surface-container);
+        font-weight: 600;
+        text-align: left;
+      }
+      // Collapse paragraph margins inside cells so rows stay compact.
+      p { margin: 0; }
+
+      // TipTap cell selection highlight (uses the primary token at low alpha so
+      // it reads on both themes).
+      .selectedCell::after {
+        background: color-mix(in srgb, var(--mat-sys-primary) 18%, transparent);
+        position: absolute;
+        inset: 0;
+        content: '';
+        pointer-events: none;
+      }
+      // Draggable column-resize affordance.
+      .column-resize-handle {
+        position: absolute;
+        right: -2px;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: var(--mat-sys-primary);
+        cursor: col-resize;
+      }
+    }
+
+    // Inline code: monospace + subtle chip frame so it reads distinct from body
+    // text. The `pre code` rule below strips this framing for code BLOCKS.
     code {
       font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 0.9em;
+      background: color-mix(in srgb, var(--mat-sys-surface-container) 80%, var(--mat-sys-surface));
+      color: var(--mat-sys-on-surface);
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
     }
 
     // Framed code block — surface-container tint so it reads on both themes,
@@ -176,8 +499,46 @@
       code {
         background: none;
         padding: 0;
+        border-radius: 0;
         font-size: inherit;
         color: var(--mat-sys-on-surface);
+      }
+    }
+
+    // Editable code block: the node-view wrapper anchors a corner language
+    // picker over the highlighted <pre>. Each block can switch its
+    // syntax-highlight language at any time.
+    .code-block {
+      position: relative;
+
+      // Reserve room at the top-right so the select doesn't overlap the first
+      // line of code.
+      pre {
+        padding-top: 1.6em;
+      }
+    }
+
+    // Small, subtle language <select> pinned to the block's top-right corner.
+    // Theme-safe via mat-sys tokens; faded until hover/focus so it stays
+    // unobtrusive while reading.
+    .code-lang {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      z-index: 1;
+      font-size: var(--sn-text-2xs);
+      padding: 1px 4px;
+      border-radius: 4px;
+      border: 1px solid var(--mat-sys-outline-variant);
+      background: var(--mat-sys-surface-container);
+      color: var(--mat-sys-on-surface-variant);
+      opacity: 0.65;
+      cursor: pointer;
+      transition: opacity 0.15s;
+
+      &:hover,
+      &:focus {
+        opacity: 1;
       }
     }
 
@@ -212,6 +573,12 @@
     // Free-floating / resizable image node view.
     .floating-image { cursor: move; user-select: none; }
     .floating-image[data-floating='true'] img { max-width: none; }
+    // Clicking an image selects its node (so it can be copied/cut/deleted);
+    // give that selected state a visible ring.
+    .floating-image.ProseMirror-selectednode img {
+      outline: 2px solid var(--mat-sys-primary);
+      outline-offset: 1px;
+    }
     .sn-resize-handle {
       width: 10px; height: 10px; box-sizing: border-box;
       background: var(--mat-sys-primary);

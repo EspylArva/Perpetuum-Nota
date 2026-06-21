@@ -1,0 +1,408 @@
+/* Wall / grid view styles for the Manager component (split out of manager.scss
+   to keep each component stylesheet focused — and under the size budget). Covers
+   the spatial grid, note + folder cards, floating windows, the folder mini-grid,
+   drag-and-drop affordances, and the minimized-window bubble stack. */
+
+$cell: 40px;
+$card-w: 232px; // 6 cells minus the visual gutter
+
+/* The scroll container is also the pan surface. Empty grid space invites a
+   pan-drag. */
+.wall-scroll {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  cursor: grab;
+
+  &.panning { cursor: grabbing; }
+  /* While a note is dragged, highlight the grid as a "drop here to unfile" zone
+     (the manager toggles this on cards dragged out of a folder window). */
+  &.drop-hover { background: color-mix(in srgb, var(--mat-sys-primary) 5%, transparent); }
+}
+
+.wall-grid {
+  position: relative;
+  min-height: 100%;
+  min-width: 100%;
+
+  /* Crosses only at intersections: a tiled SVG plus (centered per 40px tile,
+     pattern shifted by half a tile so the pluses land exactly on multiples of
+     40px) used as a mask over the theme-aware cross color. */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: var(--sn-grid-cross);
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M15.5 20h9M20 15.5v9' stroke='black' stroke-width='1'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M15.5 20h9M20 15.5v9' stroke='black' stroke-width='1'/%3E%3C/svg%3E");
+    -webkit-mask-size: $cell $cell;
+    mask-size: $cell $cell;
+    -webkit-mask-position: -20px -20px;
+    mask-position: -20px -20px;
+    -webkit-mask-repeat: repeat;
+    mask-repeat: repeat;
+  }
+
+  /* ---- note card ---- */
+  .card {
+    position: absolute;
+    width: $card-w;
+    background: var(--sn-card);
+    border: 1px solid var(--sn-card-border);
+    border-radius: 10px;
+    padding: 0.7rem 0.85rem 0.8rem;
+    cursor: pointer;
+    box-shadow: var(--mat-sys-level1);
+    transition: box-shadow 0.15s;
+    color: var(--mat-sys-on-surface);
+
+    /* Card body is a flex column so the LAST `.badges` (tags) row floats to the
+       bottom edge regardless of preview length. */
+    display: flex;
+    flex-direction: column;
+
+    &:hover { box-shadow: var(--mat-sys-level3); }
+    &.checked { outline: 2px solid var(--mat-sys-primary); }
+    &.cdk-drag-dragging { z-index: 5; box-shadow: var(--mat-sys-level5); cursor: grabbing; }
+    &.foreign { cursor: default; }
+    &.foreign:hover { box-shadow: var(--mat-sys-level1); }
+
+    /* Header strip: checkbox (top-left) … due date + delete (top-right). */
+    .card-head {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      min-height: 1.9rem;
+      margin: -0.2rem -0.1rem 0.15rem;
+    }
+    .card-head-spacer { flex: 1 1 auto; }
+    /* Nudge the header's leading checkbox right so the always-rendered corner
+       pin badge (shared `.pin-ico`) stays clear of it. Permanent gutter, so
+       pinning / unpinning never shifts the header. */
+    &:has(.pin-ico) .card-head { padding-left: 1.2rem; }
+
+    h3 {
+      margin: 0 0 0.35rem;
+      font-size: var(--sn-text-md);
+      font-weight: 600;
+      display: flex; align-items: center; gap: 0.25rem;
+      overflow-wrap: anywhere;
+
+      /* Title plate: a rounded, semi-transparent border so the title reads as a
+         distinct label. Theme-aware via color-mix on the inherited text color. */
+      .title-text {
+        border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+        border-radius: 6px;
+        padding: 2px 6px;
+      }
+    }
+    p {
+      margin: 0;
+      font-size: var(--sn-text-sm);
+      color: var(--mat-sys-on-surface-variant);
+      max-height: 6.4rem;
+      overflow: hidden;
+      white-space: pre-line;
+    }
+
+    .card-check { flex: 0 0 auto; }
+    /* Due chip in the header: keep it from crowding out the delete button. */
+    .card-due { max-width: 60%; overflow: hidden; }
+    .card-del {
+      flex: 0 0 auto;
+      opacity: 0.5;
+      &:hover { opacity: 1; }
+    }
+    .badges { margin-top: 0.5rem; display: flex; gap: 0.3rem; flex-wrap: wrap; }
+    /* Only the bottom (tags) row floats down; an earlier due row keeps its flow. */
+    .badges:last-child { margin-top: auto; }
+  }
+
+  /* ---- folder card ---- */
+  /* Tinted container, a folder icon, the name, and the live note count.
+     Draggable to reposition; a plain click opens the folder window; a note
+     dropped onto it files the note into the folder (`.drop-hover` highlight). */
+  .folder-card {
+    position: absolute;
+    width: $card-w;
+    box-sizing: border-box;
+    height: $cell * 2 - 8px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0.85rem;
+    border-radius: 10px;
+    cursor: pointer;
+    user-select: none;
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+    border: 1px solid var(--mat-sys-outline-variant);
+    box-shadow: var(--mat-sys-level1);
+    transition: box-shadow 0.15s;
+
+    &:hover { box-shadow: var(--mat-sys-level3); }
+    &:focus-visible { outline: 2px solid var(--mat-sys-primary); outline-offset: 2px; }
+    &.cdk-drag-dragging { z-index: 5; box-shadow: var(--mat-sys-level5); cursor: grabbing; }
+    &.drop-hover {
+      outline: 2px dashed var(--mat-sys-primary);
+      outline-offset: 2px;
+      box-shadow: var(--mat-sys-level4);
+    }
+
+    .folder-ico {
+      flex: 0 0 auto;
+      font-size: 1.4rem; width: 1.4rem; height: 1.4rem;
+      color: var(--mat-sys-on-secondary-container);
+    }
+    .folder-name {
+      flex: 1; min-width: 0;
+      font-weight: 600; font-size: var(--sn-text-base);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .folder-count {
+      flex: 0 0 auto;
+      min-width: 1.5rem; text-align: center;
+      font-size: var(--sn-text-xs); font-weight: 700;
+      padding: 0.1rem 0.4rem; border-radius: 999px;
+      background: var(--mat-sys-surface-container-lowest);
+      color: var(--mat-sys-on-surface-variant);
+    }
+  }
+}
+
+/* ---- floating note windows (wall view) ---- */
+/* The window frame lives in note-window.scss; these style the projected content
+   (header controls + editor) that the manager passes into the window body. */
+.nw-head {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container-low);
+  .pinned { color: var(--mat-sys-primary); }
+}
+app-note-window app-note-editor { flex: 1; min-height: 0; display: flex; }
+
+/* Folder window mini-grid: a wrapped flow of draggable folder + note tiles.
+   Dropping a tile out onto the grid unfiles it; dragging a note in files it. */
+.folder-window-grid {
+  display: flex; flex-wrap: wrap; gap: 0.5rem;
+  align-content: flex-start;
+  padding: 0.75rem;
+  overflow: auto;
+  min-height: 80px;
+
+  &.drop-hover {
+    outline: 2px dashed var(--mat-sys-primary);
+    outline-offset: -4px;
+    background: color-mix(in srgb, var(--mat-sys-primary) 7%, transparent);
+  }
+
+  .mini {
+    position: relative;
+    box-sizing: border-box;
+    width: 150px; min-height: 64px;
+    display: flex; flex-direction: column; gap: 0.2rem;
+    text-align: left;
+    padding: 0.5rem 0.6rem;
+    border-radius: 10px;
+    border: 1px solid var(--mat-sys-outline-variant);
+    background: var(--sn-card);
+    color: var(--mat-sys-on-surface);
+    cursor: pointer;
+    font: inherit;
+
+    &:hover { box-shadow: var(--mat-sys-level2); }
+    &.cdk-drag-dragging { box-shadow: var(--mat-sys-level5); opacity: 0.92; cursor: grabbing; }
+
+    .mini-title {
+      font-weight: 600; font-size: var(--sn-text-sm);
+      display: flex; align-items: center; gap: 0.2rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    /* Reserve space so the always-rendered corner pin badge clears the title. */
+    &:has(.pin-ico) .mini-title { padding-left: 1.1rem; }
+    .mini-preview {
+      font-size: var(--sn-text-xs); color: var(--mat-sys-on-surface-variant);
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+  }
+  .folder-mini {
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+    flex-direction: row; align-items: center; min-height: 0;
+    .folder-ico { font-size: 1.2rem; width: 1.2rem; height: 1.2rem; }
+    .mini-title { flex: 1; }
+    .folder-count {
+      font-size: var(--sn-text-2xs); font-weight: 700;
+      padding: 0.05rem 0.35rem; border-radius: 999px;
+      background: var(--mat-sys-surface-container-lowest);
+    }
+  }
+}
+
+/* Reorganize mode: subtle grid tint signals the mode is on. */
+.wall-grid.reorganizing {
+  background-color: color-mix(in srgb, var(--mat-sys-primary) 7%, transparent);
+}
+
+/* Note-link overlay on the wall (toggle). */
+.wall-links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+
+  line {
+    stroke: var(--mat-sys-primary);
+    stroke-width: 1.5;
+    opacity: 0.3;
+  }
+}
+
+/* ---- minimized windows: a stack of bubbles bottom-right ----
+   Folders and notes get distinct colours. Two count pills (folders / notes) sit
+   below the stack so you can count without expanding; the stack is lifted to
+   leave room for that count row in the corner. Hovering the stack fans the
+   bubbles into a non-overlapping vertical column (the host height grows inline
+   so the hover area covers the whole column). */
+.bubble-stack {
+  position: fixed;
+  right: 1.25rem;
+  /* Lifted above the count row (which sits at 1.25rem) so the pills sit below. */
+  bottom: 2.9rem;
+  z-index: 80;
+  width: 48px;
+  /* height is set inline by the manager (48px collapsed; tall when fanned). */
+
+  .bubble {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 48px;
+    height: 48px;
+    /* Stacked: each bubble peeks slightly above and behind the front one. */
+    transform: translateY(calc(var(--i) * -4px)) scale(calc(1 - var(--i) * 0.04));
+    transition: transform 0.18s ease;
+
+    /* The circular, clickable face (icon centred); restores the window. */
+    .bubble-restore {
+      position: absolute;
+      inset: 0;
+      border: none;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--mat-sys-level3);
+      cursor: pointer;
+    }
+
+    &.note .bubble-restore { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
+    &.folder .bubble-restore { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
+
+    /* Small circular close button, top-right corner; revealed only on hover. */
+    .bubble-close {
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      z-index: 1;
+      width: 18px;
+      height: 18px;
+      min-width: 0;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--mat-sys-error);
+      color: var(--mat-sys-on-error);
+      box-shadow: var(--mat-sys-level1);
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        line-height: 14px;
+      }
+    }
+
+    &:hover .bubble-close {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Name tag under each bubble (the window title), shown only when fanned.
+       Right-aligned with the bubble and extending left so long titles stay
+       on-screen; ellipsised when too long. */
+    .bubble-name {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 4px;
+      max-width: 150px;
+      padding: 0.1rem 0.45rem;
+      border-radius: 6px;
+      font-size: var(--sn-text-2xs);
+      font-weight: 600;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      background: var(--mat-sys-surface-container-highest);
+      color: var(--mat-sys-on-surface);
+      box-shadow: var(--mat-sys-level1);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+    }
+  }
+
+  /* Fanned out: spread into a vertical column. 76px apart leaves room under each
+     48px bubble for its name tag without overlapping the next one; the whole
+     column is lifted 22px so the bottom bubble's tag fits above the corner. */
+  &.fanned .bubble {
+    transform: translateY(calc(var(--i) * -76px - 22px));
+
+    .bubble-name { opacity: 1; }
+  }
+}
+
+/* Folder / note count indicators, below the stack in the bottom-right corner.
+   Each one is a circle in the bubble colour holding just the count (no icon);
+   right-aligned with the stack above it. */
+.bubble-counts {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 80;
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: none;
+
+  .bubble-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.4rem;
+    height: 1.4rem;
+    padding: 0;
+    font-size: var(--sn-text-2xs);
+    font-weight: 700;
+    border-radius: 50%;
+    box-shadow: var(--mat-sys-level1);
+
+    &.folder { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
+    &.note { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
+  }
+}

@@ -1,4 +1,4 @@
-import type { ProseMirrorDoc, ProseMirrorNode } from '@stickynotes/shared';
+import type { ProseMirrorDoc, ProseMirrorNode } from '@perpetuum-nota/shared';
 
 /** One entry in the table of contents. */
 export interface TocEntry {
@@ -37,6 +37,25 @@ export function extractToc(doc: ProseMirrorDoc): TocEntry[] {
   return entries;
 }
 
+/**
+ * Computes the hierarchical outline number for each TOC entry (e.g. "1", "1.1",
+ * "1.1.1"), index-aligned to `entries`. A heading increments its own level and
+ * resets all deeper counters, so sub-numbers restart under each higher heading.
+ *
+ * This mirrors the editor's CSS counters exactly — including leading zeros when
+ * a document opens below H1 (e.g. a lone H3 reads "0.0.1") — so the editor and
+ * the ToC always agree.
+ */
+export function headingNumbers(entries: TocEntry[]): string[] {
+  const counters = [0, 0, 0, 0, 0]; // levels 1..5
+  return entries.map((e) => {
+    const lvl = Math.min(5, Math.max(1, e.level));
+    counters[lvl - 1]++;
+    for (let i = lvl; i < counters.length; i++) counters[i] = 0;
+    return counters.slice(0, lvl).join('.');
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -50,6 +69,7 @@ const LEAF_TYPES = new Set([
   'hardBreak',
   'inlineMath',
   'blockMath',
+  'wikilink',
 ]);
 
 /**
@@ -72,5 +92,8 @@ function nodeSize(node: ProseMirrorNode): number {
 /** Extracts raw text content from a node, ignoring marks. */
 function extractPlainText(node: ProseMirrorNode): string {
   if (node.type === 'text') return node.text ?? '';
+  // Wikilink pills are atoms (no content) — surface their title so a heading
+  // like "See [[Other]]" still contributes "Other" to the ToC label.
+  if (node.type === 'wikilink') return (node.attrs?.['title'] as string) ?? '';
   return (node.content ?? []).map(extractPlainText).join('');
 }

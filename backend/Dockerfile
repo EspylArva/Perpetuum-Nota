@@ -25,5 +25,23 @@ COPY --from=build /app/backend/prisma ./backend/prisma
 COPY --from=build /app/backend/dist ./backend/dist
 WORKDIR /app/backend
 EXPOSE 3000
+
+# Build/version metadata (last, so it never busts the npm/build cache). Passed
+# by scripts/deploy-to-zot.sh and surfaced at GET /api/info → Settings "App info".
+ARG APP_VERSION=dev
+ARG GIT_COMMIT=unknown
+ARG GIT_COMMIT_FULL=unknown
+ARG GIT_BRANCH=unknown
+ARG BUILD_TIME=unknown
+ARG APP_AUTHOR=unknown
+ENV APP_VERSION=$APP_VERSION \
+    GIT_COMMIT=$GIT_COMMIT \
+    GIT_COMMIT_FULL=$GIT_COMMIT_FULL \
+    GIT_BRANCH=$GIT_BRANCH \
+    BUILD_TIME=$BUILD_TIME \
+    APP_AUTHOR=$APP_AUTHOR
+LABEL org.opencontainers.image.description="Perpetuum Nota API — NestJS backend (notes, auth, sharing, image uploads) for the self-hosted Perpetuum Nota app." \
+      org.opencontainers.image.source="https://github.com/EspylArva/Perpetuum-Nota"
+
 # Apply migrations, then start. BootstrapService seeds the admin on boot.
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]

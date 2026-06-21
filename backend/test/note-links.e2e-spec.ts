@@ -12,7 +12,7 @@ import * as path from 'path';
 // Distinct schema so this suite does not conflict with the other e2e specs.
 const BASE_DB =
   process.env.E2E_DATABASE_URL ??
-  'postgresql://stickynotes:stickynotes_dev_pw@localhost:5432/stickynotes';
+  'postgresql://perpetuum_nota:perpetuum_nota_dev_pw@localhost:5432/perpetuum_nota';
 process.env.DATABASE_URL = `${BASE_DB}?schema=e2e_links`;
 process.env.ADMIN_EMAIL = '';
 process.env.ADMIN_PASSWORD = '';
@@ -150,6 +150,30 @@ describe('Note links + graph (e2e)', () => {
       expect(linkTitles(res)).toEqual(['Banana']);
     });
 
+    it('echoes the recomputed links in the content-save response', async () => {
+      // The editor refreshes the linked-note pills straight off this response,
+      // so adding/removing a [[link]] must update it without a reopen.
+      const a = await createNote(alice, 'Quince');
+      await createNote(alice, 'Raspberry');
+
+      const added = await request(server)
+        .patch(`/api/notes/${a}/content`)
+        .set('Cookie', alice)
+        .send({ content: doc('go to [[Raspberry]]') })
+        .expect(200);
+      expect(
+        (added.body.links as { title: string }[]).map((l) => l.title),
+      ).toEqual(['Raspberry']);
+
+      // Removing the link from the body empties the response link set too.
+      const removed = await request(server)
+        .patch(`/api/notes/${a}/content`)
+        .set('Cookie', alice)
+        .send({ content: doc('no links anymore') })
+        .expect(200);
+      expect(removed.body.links).toEqual([]);
+    });
+
     it('matches case-insensitively', async () => {
       const a = await createNote(alice, 'Cherry');
       await createNote(alice, 'Date');
@@ -232,7 +256,7 @@ describe('Note links + graph (e2e)', () => {
   });
 
   describe('rename + delete behaviour', () => {
-    it('rename of the target follows the id-link: GET shows the new title', async () => {
+    it('rename of the target rewrites referencing bodies AND keeps the id-link', async () => {
       const a = await createNote(alice, 'Kiwi');
       const target = await createNote(alice, 'Lemon');
       await setContent(alice, a, 'taste the [[Lemon]]');
@@ -240,7 +264,7 @@ describe('Note links + graph (e2e)', () => {
       let res = await getNote(alice, a).expect(200);
       expect(linkTitles(res)).toEqual(['Lemon']);
 
-      // Rename the target; the source text is NOT rewritten.
+      // Rename the target; referencing note bodies are rewritten to the new title.
       await request(server)
         .patch(`/api/notes/${target}`)
         .set('Cookie', alice)
@@ -252,6 +276,13 @@ describe('Note links + graph (e2e)', () => {
       expect(links).toHaveLength(1);
       expect(links[0].id).toBe(target);
       expect(links[0].title).toBe('Lime'); // current title, link row persisted
+
+      // The source body text now carries the NEW title, not the old one.
+      const body = res.body.content as {
+        content: { content: { text?: string }[] }[];
+      };
+      const text = body.content[0].content.map((n) => n.text ?? '').join('');
+      expect(text).toBe('taste the [[Lime]]');
     });
 
     it('deleting the target removes the row (cascade) so GET no longer lists it', async () => {

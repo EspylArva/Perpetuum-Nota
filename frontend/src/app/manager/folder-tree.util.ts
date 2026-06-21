@@ -1,4 +1,4 @@
-import type { FolderDto } from '@stickynotes/shared';
+import type { FolderDto } from '@perpetuum-nota/shared';
 
 /** A folder plus its resolved children and depth, for recursive rendering. */
 export interface FolderNode {

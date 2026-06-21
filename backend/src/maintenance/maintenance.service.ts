@@ -4,6 +4,7 @@ import {
   OnApplicationBootstrap,
   OnApplicationShutdown,
 } from '@nestjs/common';
+import type { DatabaseStatsDto, RinseResultDto } from '@perpetuum-nota/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   extractReferencedUploadIds,
@@ -95,6 +96,63 @@ export class MaintenanceService
       this.running = false;
       this.timer = setTimeout(() => void this.sweep(), SWEEP_INTERVAL_MS);
     }
+  }
+
+  /**
+   * Content row counts for the admin "Rinse database" panel. `users` is the
+   * count a rinse KEEPS (accounts survive); everything else is wiped.
+   */
+  async getStats(): Promise<DatabaseStatsDto> {
+    const [notes, folders, tags, shares, links, images, users] =
+      await this.prisma.$transaction([
+        this.prisma.note.count(),
+        this.prisma.folder.count(),
+        this.prisma.tag.count(),
+        this.prisma.noteShare.count(),
+        this.prisma.noteLink.count(),
+        this.prisma.imageAsset.count(),
+        this.prisma.user.count(),
+      ]);
+    return { notes, folders, tags, shares, links, images, users };
+  }
+
+  /**
+   * Admin "rinse": wipe ALL user content — every note, folder, and tag across
+   * every account — while leaving user accounts and credentials untouched.
+   * Deleting notes cascades away their image rows, shares, note-tag joins, and
+   * link edges; folders and tags are deleted explicitly (notes go first, so the
+   * folderId SetNull backstop never fires). Image FILES on disk are unlinked
+   * afterward using paths captured before the rows vanish. Irreversible: no
+   * trash, no grace window, no undo.
+   */
+  async rinseContent(): Promise<RinseResultDto> {
+    // Capture file paths before the rows disappear — the cascade leaves none.
+    const assets = await this.prisma.imageAsset.findMany({
+      select: { storagePath: true },
+    });
+
+    // Order matters: notes first (cascades images/shares/tags/links), then the
+    // now-unreferenced folders and tags. A single transaction keeps the wipe
+    // all-or-nothing.
+    const [notes, folders, tags] = await this.prisma.$transaction([
+      this.prisma.note.deleteMany({}),
+      this.prisma.folder.deleteMany({}),
+      this.prisma.tag.deleteMany({}),
+    ]);
+
+    await this.uploads.deleteFiles(assets);
+
+    const result: RinseResultDto = {
+      notes: notes.count,
+      folders: folders.count,
+      tags: tags.count,
+      images: assets.length,
+      files: assets.length,
+    };
+    this.logger.warn(
+      `Database rinsed: removed ${result.notes} note(s), ${result.folders} folder(s), ${result.tags} tag(s), ${result.images} image(s)`,
+    );
+    return result;
   }
 
   /**

@@ -54,9 +54,10 @@ model Note {
   id               String     @id @default(uuid())
   ownerId          String
   owner            User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  // The user who most recently edited content/meta/tags. Null = never edited
-  // since creation. Today only the owner can edit; this generalises if shared
-  // editing ever lands. SetNull keeps the note if the editor is deleted.
+  // The user who most recently edited content/meta. Null = never edited since
+  // creation. May be the owner, a share grantee with edit rights, or any user
+  // on a PUBLIC (everyone-editable) note. SetNull keeps the note if the editor
+  // is deleted.
   lastEditedById   String?
   lastEditedBy     User?      @relation("LastEditor", fields: [lastEditedById], references: [id], onDelete: SetNull)
   title            String     @default("")
@@ -115,18 +116,26 @@ model Folder {
   parent    Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
   children  Folder[] @relation("FolderTree")
   notes     Note[]
+  // Wall-view grid coordinates (cell units), mirroring Note.wallX/wallY. Null =
+  // never hand-placed; the client auto-flows the folder card into a free slot.
+  wallX     Int?
+  wallY     Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([ownerId, parentId])
 }
 
-// Explicit per-user view grants on PRIVATE notes (view-only in the MVP).
+// Explicit per-user grants on PRIVATE notes. A grant is either read-only
+// (canEdit=false) or editable (canEdit=true). PUBLIC notes need no grant — they
+// are viewable AND editable by every logged-in user (see canAccess()).
 model NoteShare {
   noteId    String
   note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Grant level: false = read-only (view), true = editor (view + edit content).
+  canEdit   Boolean  @default(false)
   createdAt DateTime @default(now())
   // When the recipient first opened the note after this grant; null = unseen
   // (drives the "Shared with me" badge).

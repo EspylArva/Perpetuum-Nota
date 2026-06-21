@@ -14,7 +14,7 @@ import * as path from 'path';
 // Must be set BEFORE AppModule (and thus PrismaClient) is loaded.
 const BASE_DB =
   process.env.E2E_DATABASE_URL ??
-  'postgresql://stickynotes:stickynotes_dev_pw@localhost:5432/stickynotes';
+  'postgresql://perpetuum_nota:perpetuum_nota_dev_pw@localhost:5432/perpetuum_nota';
 process.env.DATABASE_URL = `${BASE_DB}?schema=e2e`;
 process.env.ADMIN_EMAIL = ''; // disable bootstrap seeding; the test seeds itself
 process.env.ADMIN_PASSWORD = '';
@@ -154,7 +154,7 @@ describe('Access matrix (e2e)', () => {
     await request(server)
       .put(`/api/notes/${grantedNote}/shares`)
       .set('Cookie', owner)
-      .send({ userIds: [granteeId] })
+      .send({ grants: [{ userId: granteeId, canEdit: false }] })
       .expect(200);
     await request(server)
       .patch(`/api/notes/${publicNote}/visibility`)
@@ -238,44 +238,62 @@ describe('Access matrix (e2e)', () => {
     });
   });
 
-  // ---------- mutation is owner-only ----------
-  describe('mutation is owner-only', () => {
-    const cases: [string, () => string][] = [
-      ['grantee on granted', () => grantee],
-      ['stranger on public', () => stranger],
-    ];
-
-    it.each(cases)('%s cannot mutate (403 on viewable, 404 on hidden)', async (_label, who) => {
-      const cookie = who();
-      const note = cookie === grantee ? grantedNote : publicNote;
-      await request(server).patch(`/api/notes/${note}`).set('Cookie', cookie).send({ title: 'x' }).expect(403);
+  // ---------- delete + manage stay owner-only ----------
+  describe('delete + manage stay owner-only', () => {
+    // A read-only grantee can do NOTHING but view; a stranger on a PUBLIC note
+    // may edit content (covered separately) but still cannot delete or manage.
+    it('read-only grantee cannot mutate the granted note at all', async () => {
+      const note = grantedNote;
+      await request(server).patch(`/api/notes/${note}`).set('Cookie', grantee).send({ title: 'x' }).expect(403);
       await request(server)
         .patch(`/api/notes/${note}/content`)
-        .set('Cookie', cookie)
+        .set('Cookie', grantee)
         .send({ content: EMPTY_DOC })
         .expect(403);
-      await request(server).delete(`/api/notes/${note}`).set('Cookie', cookie).expect(403);
-      await request(server).delete(`/api/notes/${note}/permanent`).set('Cookie', cookie).expect(403);
+      await request(server).delete(`/api/notes/${note}`).set('Cookie', grantee).expect(403);
+      await request(server).delete(`/api/notes/${note}/permanent`).set('Cookie', grantee).expect(403);
       await request(server)
         .patch(`/api/notes/${note}/visibility`)
-        .set('Cookie', cookie)
+        .set('Cookie', grantee)
         .send({ visibility: 'PUBLIC' })
         .expect(403);
-      await request(server).get(`/api/notes/${note}/shares`).set('Cookie', cookie).expect(403);
+      await request(server).get(`/api/notes/${note}/shares`).set('Cookie', grantee).expect(403);
       await request(server)
         .put(`/api/notes/${note}/shares`)
-        .set('Cookie', cookie)
-        .send({ userIds: [] })
+        .set('Cookie', grantee)
+        .send({ grants: [] })
         .expect(403);
       await request(server)
         .put(`/api/notes/${note}/tags`)
-        .set('Cookie', cookie)
+        .set('Cookie', grantee)
         .send({ names: ['x'] })
         .expect(403);
       await request(server)
         .post(`/api/notes/${note}/images`)
-        .set('Cookie', cookie)
+        .set('Cookie', grantee)
         .attach('file', PNG, { filename: 'p.png', contentType: 'image/png' })
+        .expect(403);
+    });
+
+    it('a stranger cannot delete or manage a PUBLIC note (only edit it)', async () => {
+      const note = publicNote;
+      await request(server).delete(`/api/notes/${note}`).set('Cookie', stranger).expect(403);
+      await request(server).delete(`/api/notes/${note}/permanent`).set('Cookie', stranger).expect(403);
+      await request(server)
+        .patch(`/api/notes/${note}/visibility`)
+        .set('Cookie', stranger)
+        .send({ visibility: 'PRIVATE' })
+        .expect(403);
+      await request(server).get(`/api/notes/${note}/shares`).set('Cookie', stranger).expect(403);
+      await request(server)
+        .put(`/api/notes/${note}/shares`)
+        .set('Cookie', stranger)
+        .send({ grants: [] })
+        .expect(403);
+      await request(server)
+        .put(`/api/notes/${note}/tags`)
+        .set('Cookie', stranger)
+        .send({ names: ['x'] })
         .expect(403);
     });
 
@@ -305,6 +323,103 @@ describe('Access matrix (e2e)', () => {
         .send({ orderedIds: [publicNote] })
         .expect(200);
       expect(res.body.updated).toEqual([]);
+    });
+  });
+
+  // ---------- shared + public editing ----------
+  describe('shared + public editing', () => {
+    let editablePublic: string; // owner's, PUBLIC — everyone may edit
+    let editorNote: string; // owner's, PRIVATE — grantee has an editor grant
+
+    beforeAll(async () => {
+      editablePublic = await createNote(owner, 'editable public');
+      await request(server)
+        .patch(`/api/notes/${editablePublic}/visibility`)
+        .set('Cookie', owner)
+        .send({ visibility: 'PUBLIC' })
+        .expect(200);
+
+      editorNote = await createNote(owner, 'editor note');
+      await request(server)
+        .put(`/api/notes/${editorNote}/shares`)
+        .set('Cookie', owner)
+        .send({ grants: [{ userId: granteeId, canEdit: true }] })
+        .expect(200);
+    });
+
+    it('a stranger can edit a PUBLIC note and the last editor is recorded', async () => {
+      await request(server)
+        .patch(`/api/notes/${editablePublic}`)
+        .set('Cookie', stranger)
+        .send({ title: 'edited by stranger' })
+        .expect(200);
+      await request(server)
+        .patch(`/api/notes/${editablePublic}/content`)
+        .set('Cookie', stranger)
+        .send({ content: EMPTY_DOC })
+        .expect(200);
+      await request(server)
+        .post(`/api/notes/${editablePublic}/images`)
+        .set('Cookie', stranger)
+        .attach('file', PNG, { filename: 'p.png', contentType: 'image/png' })
+        .expect(201);
+
+      const view = await request(server)
+        .get(`/api/notes/${editablePublic}`)
+        .set('Cookie', owner)
+        .expect(200);
+      expect(view.body.lastEditedByName).toBe('stranger@test.io');
+    });
+
+    it('an editor grantee can edit content/title; the last editor follows', async () => {
+      await request(server)
+        .patch(`/api/notes/${editorNote}`)
+        .set('Cookie', grantee)
+        .send({ title: 'edited by grantee' })
+        .expect(200);
+      await request(server)
+        .patch(`/api/notes/${editorNote}/content`)
+        .set('Cookie', grantee)
+        .send({ content: EMPTY_DOC })
+        .expect(200);
+
+      const view = await request(server)
+        .get(`/api/notes/${editorNote}`)
+        .set('Cookie', owner)
+        .expect(200);
+      expect(view.body.title).toBe('edited by grantee');
+      expect(view.body.lastEditedByName).toBe('grantee@test.io');
+      // The grantee sees canEdit=true on their shared copy.
+      const granteeView = await request(server)
+        .get(`/api/notes/${editorNote}`)
+        .set('Cookie', grantee)
+        .expect(200);
+      expect(granteeView.body.canEdit).toBe(true);
+      expect(granteeView.body.isOwner).toBe(false);
+    });
+
+    it('an editor grantee still cannot delete or manage the note', async () => {
+      await request(server).delete(`/api/notes/${editorNote}`).set('Cookie', grantee).expect(403);
+      await request(server)
+        .patch(`/api/notes/${editorNote}/visibility`)
+        .set('Cookie', grantee)
+        .send({ visibility: 'PUBLIC' })
+        .expect(403);
+      await request(server).get(`/api/notes/${editorNote}/shares`).set('Cookie', grantee).expect(403);
+      await request(server)
+        .put(`/api/notes/${editorNote}/shares`)
+        .set('Cookie', grantee)
+        .send({ grants: [] })
+        .expect(403);
+    });
+
+    it('a read-only grantee gets canEdit=false on their shared copy', async () => {
+      const view = await request(server)
+        .get(`/api/notes/${grantedNote}`)
+        .set('Cookie', grantee)
+        .expect(200);
+      expect(view.body.canEdit).toBe(false);
+      expect(view.body.isOwner).toBe(false);
     });
   });
 
@@ -348,7 +463,7 @@ describe('Access matrix (e2e)', () => {
       await request(server)
         .put(`/api/notes/${trashed}/shares`)
         .set('Cookie', owner)
-        .send({ userIds: [granteeId] })
+        .send({ grants: [{ userId: granteeId, canEdit: false }] })
         .expect(200);
       trashedImg = await uploadImage(owner, trashed);
       await request(server).delete(`/api/notes/${trashed}`).set('Cookie', owner).expect(200);
@@ -462,7 +577,7 @@ describe('Access matrix (e2e)', () => {
       await request(server)
         .put(`/api/notes/${grantedNote}/shares`)
         .set('Cookie', owner)
-        .send({ userIds: [] })
+        .send({ grants: [] })
         .expect(200);
       await request(server).get(`/api/notes/${grantedNote}`).set('Cookie', grantee).expect(404);
       await request(server).get(`/api/uploads/${grantedImg}`).set('Cookie', grantee).expect(404);
@@ -470,7 +585,7 @@ describe('Access matrix (e2e)', () => {
       await request(server)
         .put(`/api/notes/${grantedNote}/shares`)
         .set('Cookie', owner)
-        .send({ userIds: [granteeId] })
+        .send({ grants: [{ userId: granteeId, canEdit: false }] })
         .expect(200);
     });
 
@@ -624,7 +739,7 @@ describe('Access matrix (e2e)', () => {
       await request(server)
         .put(`/api/notes/${noteId}/shares`)
         .set('Cookie', victimCookie)
-        .send({ userIds: [granteeId] })
+        .send({ grants: [{ userId: granteeId, canEdit: false }] })
         .expect(200);
       await request(server).get(`/api/notes/${noteId}`).set('Cookie', grantee).expect(200);
 

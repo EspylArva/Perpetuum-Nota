@@ -1,9 +1,3 @@
-<mat-toolbar class="bar">
-  <span class="brand">Sticky Notes · Users</span>
-  <span class="spacer"></span>
-  <a matButton routerLink="/"><mat-icon>arrow_back</mat-icon> Back to notes</a>
-</mat-toolbar>
-
 <div class="content">
   <section class="create card">
     <h2>Create user</h2>
@@ -47,7 +41,19 @@
       <tbody>
         @for (u of users(); track u.id) {
           <tr [class.inactive]="!u.isActive">
-            <td>{{ u.displayName }}</td>
+            <td class="name">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="name-cell">
+                <input
+                  matInput
+                  #nameInput
+                  [value]="u.displayName"
+                  [attr.aria-label]="'Display name for ' + u.email"
+                  (keydown.enter)="nameInput.blur()"
+                  (keydown.escape)="nameInput.value = u.displayName; nameInput.blur()"
+                  (blur)="setDisplayName(u, nameInput.value)"
+                />
+              </mat-form-field>
+            </td>
             <td class="email">{{ u.email }}</td>
             <td>
               <mat-form-field appearance="outline" subscriptSizing="dynamic" class="role-cell">

@@ -1,0 +1,86 @@
+<app-settings-panel
+  title="Settings backup"
+  description="Save your preferences (theme, dates, and confirmations) to a JSON file, or restore them on another device."
+>
+  <div class="actions">
+    <button matButton="filled" type="button" (click)="exportSettings()">
+      <mat-icon>download</mat-icon> Export settings
+    </button>
+
+    <input
+      #settingsFile
+      type="file"
+      accept="application/json,.json"
+      hidden
+      (change)="onImportSettingsFile($event)"
+    />
+    <button matButton type="button" (click)="settingsFile.click()">
+      <mat-icon>upload</mat-icon> Import settings
+    </button>
+  </div>
+  <p class="hint">Importing applies only the settings it recognises; the file is read on this device and never uploaded.</p>
+</app-settings-panel>
+
+<app-settings-panel
+  title="Export notes"
+  description="Download your notes as files. Choose which notes to include and the output format."
+>
+  <fieldset class="scopes">
+    <legend>Include</legend>
+    <mat-checkbox [checked]="scopeMine()" (change)="scopeMine.set($event.checked)">
+      My notes
+    </mat-checkbox>
+    <mat-checkbox [checked]="scopeShared()" (change)="scopeShared.set($event.checked)">
+      Shared with me
+    </mat-checkbox>
+    <mat-checkbox [checked]="scopePublic()" (change)="scopePublic.set($event.checked)">
+      Public notes
+    </mat-checkbox>
+  </fieldset>
+
+  <div class="export-row">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="format">
+      <mat-label>Format</mat-label>
+      <mat-select [value]="format()" (selectionChange)="format.set($event.value)">
+        <mat-option value="markdown">Markdown (.md)</mat-option>
+        <mat-option value="json">JSON (.json)</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <button
+      matButton="filled"
+      type="button"
+      [disabled]="!canExportNotes()"
+      (click)="exportNotes()"
+    >
+      <mat-icon>download</mat-icon>
+      {{ exportingNotes() ? 'Exporting…' : 'Export notes' }}
+    </button>
+  </div>
+</app-settings-panel>
+
+<app-settings-panel
+  title="Import notes"
+  description="Create new notes from Markdown files. Each file becomes one note; a leading “# Heading” is used as its title."
+>
+  <div class="actions">
+    <input
+      #notesFile
+      type="file"
+      accept=".md,.markdown,text/markdown"
+      multiple
+      hidden
+      (change)="onImportNotesFiles($event)"
+    />
+    <button
+      matButton="filled"
+      type="button"
+      [disabled]="importingNotes()"
+      (click)="notesFile.click()"
+    >
+      <mat-icon>upload_file</mat-icon>
+      {{ importingNotes() ? 'Importing…' : 'Choose Markdown files' }}
+    </button>
+  </div>
+  <p class="hint">Only Markdown (<code>.md</code>) files are accepted. Imported notes are added as your own private notes.</p>
+</app-settings-panel>

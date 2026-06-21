@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import type { TagDto } from '@stickynotes/shared';
+import type { TagDto } from '@perpetuum-nota/shared';
 
 @Injectable({ providedIn: 'root' })
 export class TagsApi {

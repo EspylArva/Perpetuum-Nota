@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import type { FolderDto } from '@stickynotes/shared';
+import type { FolderDto } from '@perpetuum-nota/shared';
 
 @Injectable({ providedIn: 'root' })
 export class FoldersApi {
@@ -19,10 +19,15 @@ export class FoldersApi {
     });
   }
 
-  /** Rename and/or move in a single PATCH. */
+  /** Rename, move, and/or reposition on the wall in a single PATCH. */
   update(
     id: string,
-    patch: { name?: string; parentId?: string | null },
+    patch: {
+      name?: string;
+      parentId?: string | null;
+      wallX?: number;
+      wallY?: number;
+    },
   ): Observable<FolderDto> {
     return this.http.patch<FolderDto>(`/api/folders/${id}`, patch);
   }
@@ -33,6 +38,11 @@ export class FoldersApi {
 
   move(id: string, parentId: string | null): Observable<FolderDto> {
     return this.update(id, { parentId });
+  }
+
+  /** Persists a folder card's wall grid position. */
+  moveOnWall(id: string, wallX: number, wallY: number): Observable<FolderDto> {
+    return this.update(id, { wallX, wallY });
   }
 
   remove(id: string): Observable<{ id: string }> {

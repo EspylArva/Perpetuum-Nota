@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
-import type { UserDto } from '@stickynotes/shared';
+import type { UserDto } from '@perpetuum-nota/shared';
 import { OpenNotesStore } from '../editor/open-notes.store';
 
 @Injectable({ providedIn: 'root' })
@@ -18,6 +18,7 @@ export class AuthService {
       tap((u) => {
         // Never serve another account's cached note state.
         this.openNotes.clear();
+        this.clearOpenTabs();
         this._user.set(u);
       }),
     );
@@ -34,9 +35,22 @@ export class AuthService {
     return this.http.post('/api/auth/logout', {}).pipe(
       tap(() => {
         this.openNotes.clear();
+        this.clearOpenTabs();
         this._user.set(null);
       }),
     );
+  }
+
+  /**
+   * Drops the persisted LIST tab set (the Manager's open-notes tabs, keyed
+   * `sticky.openTabs` in localStorage). Cleared alongside the OpenNotesStore on
+   * login/logout so one account never restores another's open notes; a plain
+   * reload (which calls `me()`, not this) keeps them.
+   */
+  private clearOpenTabs(): void {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('sticky.openTabs');
+    }
   }
 
   changePassword(

@@ -24,15 +24,22 @@ describe('canAccess', () => {
     });
   });
 
-  describe('edit (owner-only in MVP)', () => {
+  describe('edit', () => {
     it('owner can edit', () => {
       expect(canAccess(privateNote, owner, 'edit', false)).toBe(true);
     });
-    it('non-owner cannot edit a PUBLIC note', () => {
-      expect(canAccess(publicNote, other, 'edit', false)).toBe(false);
+    it('any logged-in user can edit a PUBLIC note (public is everyone-editable)', () => {
+      expect(canAccess(publicNote, other, 'edit', false)).toBe(true);
     });
-    it('non-owner cannot edit even when shared (grants are view-only)', () => {
+    it('non-owner cannot edit a private note shared read-only', () => {
+      // shared (true) but the grant is read-only (canEditGrant defaults false)
       expect(canAccess(privateNote, other, 'edit', true)).toBe(false);
+    });
+    it('non-owner can edit a private note shared with an editor grant', () => {
+      expect(canAccess(privateNote, other, 'edit', true, true)).toBe(true);
+    });
+    it('an editor grant is meaningless without share membership', () => {
+      expect(canAccess(privateNote, other, 'edit', false, true)).toBe(false);
     });
   });
 
@@ -43,8 +50,20 @@ describe('canAccess', () => {
     it('non-owner cannot delete a PUBLIC note', () => {
       expect(canAccess(publicNote, other, 'delete', false)).toBe(false);
     });
-    it('non-owner cannot delete even when shared', () => {
-      expect(canAccess(privateNote, other, 'delete', true)).toBe(false);
+    it('non-owner cannot delete even with an editor grant', () => {
+      expect(canAccess(privateNote, other, 'delete', true, true)).toBe(false);
+    });
+  });
+
+  describe('manage (owner-only — visibility/shares/tags)', () => {
+    it('owner can manage', () => {
+      expect(canAccess(privateNote, owner, 'manage', false)).toBe(true);
+    });
+    it('an editor grantee cannot manage sharing', () => {
+      expect(canAccess(privateNote, other, 'manage', true, true)).toBe(false);
+    });
+    it('a logged-in user cannot manage a PUBLIC note they can edit', () => {
+      expect(canAccess(publicNote, other, 'manage', false)).toBe(false);
     });
   });
 });

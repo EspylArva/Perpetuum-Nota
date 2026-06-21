@@ -1,5 +1,5 @@
 import { Injectable, Signal, WritableSignal, inject, signal } from '@angular/core';
-import type { NoteDto, ProseMirrorDoc } from '@stickynotes/shared';
+import type { NoteDto, ProseMirrorDoc } from '@perpetuum-nota/shared';
 import { NotesApi } from '../core/notes.api';
 
 /** A resolved outgoing wikilink: the target note's id + current title. */
@@ -26,8 +26,8 @@ export interface OpenNote {
   readonly serverVersion: WritableSignal<number>;
   /**
    * Outgoing `[[wikilinks]]` resolved server-side, surfaced as pills. Refreshed
-   * on load and on conflict-reload; NOT after a plain autosave (updateContent
-   * returns only the new timestamp), so a freshly-typed link appears on reopen.
+   * on load, on conflict-reload, AND after every autosave (updateContent echoes
+   * the recomputed link set), so adding/removing a link updates the pills live.
    */
   readonly links: WritableSignal<NoteLinkRef[]>;
   contentUpdatedAt: string | null;
@@ -205,6 +205,10 @@ export class OpenNotesStore {
     this.api.updateContent(n.id, content, base).subscribe({
       next: (res) => {
         n.contentUpdatedAt = res.contentUpdatedAt;
+        // The save response carries the recomputed outgoing links, so the
+        // linked-note pills refresh live as the user adds/removes [[wikilinks]]
+        // — no reopen required.
+        n.links.set(res.links);
         n.dirty.set(false);
         n.saving.set(false);
         n.saveError.set(false);

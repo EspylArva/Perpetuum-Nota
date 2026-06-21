@@ -4,16 +4,16 @@
 # `name:` keeps this stack in its own compose project. Without it, this file
 # and docker-compose.yml share the project namespace derived from the folder
 # ("stickynotes"), and bringing one up RECREATES the other's `db` container.
-name: stickynotes-dev
+name: perpetuum-nota-dev
 
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-stickynotes}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stickynotes}
-      POSTGRES_DB: ${POSTGRES_DB:-stickynotes}
+      POSTGRES_USER: ${POSTGRES_USER:-perpetuum_nota}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-perpetuum_nota}
+      POSTGRES_DB: ${POSTGRES_DB:-perpetuum_nota}
     ports:
       - "5432:5432"
     volumes:

@@ -27,7 +27,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  h1 { margin: 0; font-size: 1.4rem; color: var(--mat-sys-on-surface); letter-spacing: 0.2px; }
+  h1 { margin: 0; font-size: var(--sn-text-2xl); color: var(--mat-sys-on-surface); letter-spacing: 0.2px; }
   .dot {
     width: 14px; height: 14px; border-radius: 4px;
     background: var(--mat-sys-primary);
@@ -35,10 +35,10 @@
   }
 }
 
-.sub { margin: 0 0 0.6rem; color: var(--mat-sys-on-surface-variant); font-size: 0.9rem; }
+.sub { margin: 0 0 0.6rem; color: var(--mat-sys-on-surface-variant); font-size: var(--sn-text-base); }
 
 .err {
   margin: 0 0 0.4rem;
   color: var(--mat-sys-error);
-  font-size: 0.82rem;
+  font-size: var(--sn-text-sm);
 }

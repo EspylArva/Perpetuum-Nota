@@ -1,8 +1,7 @@
 import { Component, computed, input, output } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import type { FolderDto } from '@stickynotes/shared';
+import type { FolderDto } from '@perpetuum-nota/shared';
 import { buildFolderTree, type FolderNode } from './folder-tree.util';
 
 /**
@@ -12,7 +11,7 @@ import { buildFolderTree, type FolderNode } from './folder-tree.util';
  */
 @Component({
   selector: 'app-folder-tree',
-  imports: [MatIconModule, MatMenuModule, MatTooltipModule],
+  imports: [MatIconModule, MatMenuModule],
   templateUrl: './folder-tree.html',
   styleUrl: './folder-tree.scss',
 })
@@ -30,6 +29,7 @@ export class FolderTree {
   readonly toggle = output<string>();
   readonly newSubfolder = output<FolderNode>();
   readonly rename = output<FolderNode>();
+  readonly moveTo = output<FolderNode>();
   readonly remove = output<FolderNode>();
 
   /** Roots to render: pre-built nodes if given, else build from the flat list. */

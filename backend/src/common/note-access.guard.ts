@@ -35,11 +35,14 @@ export class NoteAccessGuard implements CanActivate {
     const noteId = req.params?.id as string | undefined;
     if (!noteId) throw new NotFoundException('Note not found');
 
-    const { note, shared } = await this.access.load(noteId, user.id);
+    const { note, shared, canEdit } = await this.access.load(noteId, user.id);
     if (!note || !canAccess(note, { id: user.id }, 'view', shared)) {
       throw new NotFoundException('Note not found');
     }
-    if (action !== 'view' && !canAccess(note, { id: user.id }, action, shared)) {
+    if (
+      action !== 'view' &&
+      !canAccess(note, { id: user.id }, action, shared, canEdit)
+    ) {
       throw new ForbiddenException('You cannot modify this note');
     }
     return true;

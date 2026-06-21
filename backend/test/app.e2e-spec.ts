@@ -7,7 +7,7 @@ import * as path from 'path';
 
 const BASE_DB =
   process.env.E2E_DATABASE_URL ??
-  'postgresql://stickynotes:stickynotes_dev_pw@localhost:5432/stickynotes';
+  'postgresql://perpetuum_nota:perpetuum_nota_dev_pw@localhost:5432/perpetuum_nota';
 process.env.DATABASE_URL = `${BASE_DB}?schema=e2e`;
 process.env.ADMIN_EMAIL = '';
 process.env.ADMIN_PASSWORD = '';

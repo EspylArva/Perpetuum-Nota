@@ -11,4 +11,4 @@ export type Visibility = 'PRIVATE' | 'PUBLIC';
 export type NoteFilter = 'mine' | 'shared' | 'all' | 'trash';
 
 // Manager sort orders. Default (undefined) = explicit drag position.
-export type NoteSort = 'position' | 'updated' | 'created' | 'title';
+export type NoteSort = 'position' | 'updated' | 'created' | 'title' | 'dueDate';

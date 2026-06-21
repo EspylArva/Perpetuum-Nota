@@ -1,0 +1,56 @@
+/* Embedded inside the Settings content column — stacks panels with the same
+   gap the shell uses between groups. */
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  color: var(--mat-sys-on-surface);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.hint {
+  margin: 0.7rem 0 0.2rem;
+  font-size: var(--sn-text-sm);
+  color: var(--mat-sys-on-surface-variant);
+
+  code {
+    font-family: var(--sn-font-mono, monospace);
+    font-size: 0.9em;
+  }
+}
+
+.scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  margin: 0 0 0.4rem;
+  padding: 0;
+  border: 0;
+
+  legend {
+    padding: 0;
+    margin-bottom: 0.3rem;
+    font-size: var(--sn-text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+.export-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+
+  .format {
+    flex: 0 0 200px;
+    min-width: 160px;
+  }
+}

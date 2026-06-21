@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import type { NoteSort } from '@stickynotes/shared';
+import type { NoteSort } from '@perpetuum-nota/shared';
 
 export type ViewMode = 'list' | 'wall';
 const MODE_KEY = 'sticky.viewMode';
@@ -43,7 +43,10 @@ export class ViewModeStore {
   private readSort(): NoteSort {
     try {
       const v = localStorage.getItem(SORT_KEY);
-      return v === 'updated' || v === 'created' || v === 'title'
+      return v === 'updated' ||
+        v === 'created' ||
+        v === 'title' ||
+        v === 'dueDate'
         ? v
         : 'position';
     } catch {

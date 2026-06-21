@@ -1,0 +1,57 @@
+/* Embedded inside the Settings content column — no page chrome. */
+:host { display: block; color: var(--mat-sys-on-surface); }
+
+.card {
+  background: var(--mat-sys-surface-container-low);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 16px;
+  padding: 1.1rem 1.25rem;
+
+  h2 {
+    display: flex; align-items: center; gap: 0.4rem;
+    margin: 0 0 0.5rem; font-size: var(--sn-text-lg);
+  }
+  .hint { margin: 0 0 0.8rem; font-size: var(--sn-text-sm); color: var(--mat-sys-on-surface-variant); }
+  .muted { color: var(--mat-sys-on-surface-variant); font-size: var(--sn-text-sm); margin: 0 0 0.8rem; }
+}
+
+/* A destructive section reads as dangerous: error-tinted border + heading. */
+.card.danger {
+  border-color: color-mix(in srgb, var(--mat-sys-error) 45%, var(--mat-sys-outline-variant));
+  h2, .warn-icon { color: var(--mat-sys-error); }
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0 0 1rem;
+
+  div {
+    display: flex; flex-direction: column;
+    padding: 0.5rem 0.6rem;
+    background: var(--mat-sys-surface-container);
+    border-radius: 10px;
+  }
+  dt {
+    font-size: var(--sn-text-xs); text-transform: uppercase; letter-spacing: 0.4px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+  dd { margin: 0.1rem 0 0; font-size: var(--sn-text-lg); font-weight: 600; }
+
+  /* The one row the rinse preserves — tinted to set it apart from the doomed. */
+  .kept {
+    background: color-mix(in srgb, var(--mat-sys-primary) 12%, var(--mat-sys-surface-container));
+    dd { color: var(--mat-sys-primary); }
+  }
+}
+
+.confirm {
+  display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center;
+  mat-form-field { flex: 1; min-width: 200px; }
+}
+
+.destructive {
+  --mat-button-filled-container-color: var(--mat-sys-error);
+  --mat-button-filled-label-text-color: var(--mat-sys-on-error);
+}

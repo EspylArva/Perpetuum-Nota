@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Note, Prisma, Visibility } from '@prisma/client';
+import type { NoteExportItemDto, ProseMirrorDoc } from '@perpetuum-nota/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   EMPTY_DOC,
@@ -12,15 +13,17 @@ import {
   extractWikilinks,
   isProseMirrorDoc,
   previewFromText,
+  renameWikilinks,
   rewriteUploadSrcs,
 } from '../common/prosemirror-text';
 import { UploadsService } from '../uploads/uploads.service';
 import { CreateNoteDto } from './dto/create-note.dto';
+import { ImportNoteDto } from './dto/import-notes.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 import { UpdateNoteContentDto } from './dto/update-note-content.dto';
 
 export type NoteFilter = 'mine' | 'shared' | 'all' | 'trash';
-export type NoteSort = 'position' | 'updated' | 'created' | 'title';
+export type NoteSort = 'position' | 'updated' | 'created' | 'title' | 'dueDate';
 
 export interface ListOptions {
   filter: NoteFilter;
@@ -42,6 +45,8 @@ export interface NoteSummary {
   ownerId: string;
   ownerName: string;
   isOwner: boolean;
+  /** Whether THIS viewer may edit the note (owner, public, or editor grant). */
+  canEdit: boolean;
   lastEditedByName: string | null;
   position: number;
   pinned: boolean;
@@ -61,7 +66,7 @@ export interface NoteSummary {
 
 type NoteWithMeta = Note & {
   tags: { tag: { name: string } }[];
-  shares: { seenAt: Date | null }[];
+  shares: { seenAt: Date | null; canEdit: boolean }[];
   owner: { displayName: string };
   lastEditedBy: { displayName: string } | null;
 };
@@ -258,6 +263,8 @@ export class NotesService {
         return [pinnedFirst, { createdAt: 'desc' }];
       case 'title':
         return [pinnedFirst, { title: 'asc' }];
+      case 'dueDate':
+        return [pinnedFirst, { dueDate: { sort: 'asc', nulls: 'last' } }, { position: 'asc' }];
       default:
         return [pinnedFirst, { position: 'asc' }, { updatedAt: 'desc' }];
     }
@@ -345,6 +352,17 @@ export class NotesService {
       }
     }
 
+    // On a rename, capture the old title so we can rewrite `[[Old Title]]`
+    // references in other notes once the new title is committed.
+    let oldTitle: string | null = null;
+    if (dto.title !== undefined) {
+      const cur = await this.prisma.note.findUnique({
+        where: { id: noteId },
+        select: { title: true },
+      });
+      oldTitle = cur?.title ?? null;
+    }
+
     const note = await this.prisma.note.update({
       where: { id: noteId },
       data: {
@@ -363,7 +381,58 @@ export class NotesService {
       },
       include: this.metaInclude(userId),
     });
+
+    if (oldTitle !== null && oldTitle !== note.title) {
+      await this.propagateRename(noteId, oldTitle, note.title);
+    }
+
     return this.toSummary(note, userId);
+  }
+
+  /**
+   * Keeps referencing notes in sync after a rename: rewrites `[[Old Title]]`
+   * (node or legacy text form) → `[[New Title]]` in every note that links to the
+   * renamed note, then recomputes that note's links + search text. NoteLink edges
+   * are stored by id, so they survive a rename on their own — but the body text
+   * and the inline pill would still show the old title, and the next content save
+   * of the referencing note would drop the edge (the old title no longer resolves)
+   * without this rewrite. Best-effort across all referencing notes (incl. trashed,
+   * so a later restore stays consistent).
+   */
+  private async propagateRename(
+    targetId: string,
+    oldTitle: string,
+    newTitle: string,
+  ): Promise<void> {
+    const refs = await this.prisma.noteLink.findMany({
+      where: { toNoteId: targetId },
+      select: { fromNoteId: true },
+    });
+    const fromIds = [...new Set(refs.map((r) => r.fromNoteId))].filter(
+      (id) => id !== targetId,
+    );
+    if (fromIds.length === 0) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      const notes = await tx.note.findMany({
+        where: { id: { in: fromIds } },
+        select: { id: true, content: true },
+      });
+      const now = new Date();
+      for (const n of notes) {
+        const { doc, changed } = renameWikilinks(n.content, oldTitle, newTitle);
+        if (!changed) continue;
+        await tx.note.update({
+          where: { id: n.id },
+          data: {
+            content: doc as Prisma.InputJsonValue,
+            contentText: extractSearchText(doc),
+            contentUpdatedAt: now,
+          },
+        });
+        await this.recomputeLinks(tx, n.id, doc);
+      }
+    });
   }
 
   async updateContent(
@@ -407,8 +476,8 @@ export class NotesService {
         if (res.count === 0) {
           throw new ConflictException('Note was modified elsewhere');
         }
-        await this.recomputeLinks(tx, noteId, dto.content);
-        return { contentUpdatedAt: now };
+        const links = await this.recomputeLinks(tx, noteId, dto.content);
+        return { contentUpdatedAt: now, links };
       }
 
       const note = await tx.note.update({
@@ -416,8 +485,8 @@ export class NotesService {
         data,
         select: { contentUpdatedAt: true },
       });
-      await this.recomputeLinks(tx, noteId, dto.content);
-      return { contentUpdatedAt: note.contentUpdatedAt };
+      const links = await this.recomputeLinks(tx, noteId, dto.content);
+      return { contentUpdatedAt: note.contentUpdatedAt, links };
     });
   }
 
@@ -484,6 +553,115 @@ export class NotesService {
       });
     }
     return { deleted: deletable };
+  }
+
+  /**
+   * Collects notes for the user's "Export notes" request. Scopes are additive
+   * (a note matching any selected scope is returned once):
+   *   - 'mine'   → notes the user owns
+   *   - 'shared' → notes another user explicitly shared with them (a grant)
+   *   - 'public' → PUBLIC notes owned by another user
+   * Trashed notes are always excluded. Each note carries its full content so the
+   * client can render the chosen format. Tag names are owner-scoped, so they are
+   * only meaningful on the user's own notes (empty for others').
+   */
+  async exportNotes(
+    userId: string,
+    scopes: { mine: boolean; shared: boolean; public: boolean },
+  ): Promise<NoteExportItemDto[]> {
+    const or: Prisma.NoteWhereInput[] = [];
+    if (scopes.mine) or.push({ ownerId: userId });
+    if (scopes.shared) {
+      or.push({ ownerId: { not: userId }, shares: { some: { userId } } });
+    }
+    if (scopes.public) {
+      or.push({ ownerId: { not: userId }, visibility: 'PUBLIC' });
+    }
+    if (or.length === 0) return [];
+
+    const notes = await this.prisma.note.findMany({
+      where: { AND: [{ deletedAt: null }, { OR: or }] },
+      include: {
+        owner: { select: { displayName: true } },
+        tags: {
+          select: { tag: { select: { name: true } } },
+          orderBy: { tag: { name: 'asc' as const } },
+        },
+      },
+      orderBy: [{ ownerId: 'asc' }, { position: 'asc' }],
+    });
+
+    return notes.map((n) => ({
+      id: n.id,
+      title: n.title,
+      visibility: n.visibility,
+      ownerName: n.owner.displayName,
+      isOwner: n.ownerId === userId,
+      createdAt: n.createdAt.toISOString(),
+      updatedAt: n.updatedAt.toISOString(),
+      tags: n.tags.map((t) => t.tag.name),
+      content: n.content as unknown as ProseMirrorDoc,
+    }));
+  }
+
+  /**
+   * Bulk-creates notes from an import (Settings → Account → Import notes). The
+   * client parses each uploaded Markdown file into the app's ProseMirror content
+   * shape (reusing the editor's converter) and posts the results here; this
+   * method persists them as the caller's own PRIVATE notes — computing search
+   * text and resolving wikilinks for each — in one transaction, so a single bad
+   * item leaves nothing half-created. Returns the created count and titles.
+   */
+  async importNotes(
+    userId: string,
+    items: ImportNoteDto[],
+  ): Promise<{ created: number; titles: string[] }> {
+    // Validate every doc up front so the whole import fails atomically.
+    for (const item of items) {
+      if (!isProseMirrorDoc(item.content)) {
+        throw new BadRequestException(
+          'Every imported note must have a ProseMirror "doc" content node',
+        );
+      }
+    }
+
+    // New notes sort to the top, preserving the import's file order.
+    const { _min } = await this.prisma.note.aggregate({
+      where: { ownerId: userId },
+      _min: { position: true },
+    });
+    let position = (_min.position ?? 0) - 1;
+
+    const titles: string[] = [];
+    await this.prisma.$transaction(
+      async (tx) => {
+        const created: { id: string; content: unknown }[] = [];
+        for (const item of items) {
+          const title = item.title?.trim() || 'Untitled';
+          const note = await tx.note.create({
+            data: {
+              ownerId: userId,
+              title,
+              content: item.content as Prisma.InputJsonValue,
+              contentText: extractSearchText(item.content),
+              position: position--,
+            },
+            select: { id: true },
+          });
+          created.push({ id: note.id, content: item.content });
+          titles.push(title);
+        }
+        // Second pass: resolve wikilinks once ALL imported notes exist, so
+        // cross-references between them resolve regardless of file order.
+        for (const c of created) {
+          await this.recomputeLinks(tx, c.id, c.content);
+        }
+      },
+      // Generous ceiling — an import can be up to a few hundred notes.
+      { timeout: 60_000 },
+    );
+
+    return { created: titles.length, titles };
   }
 
   /**
@@ -563,30 +741,43 @@ export class NotesService {
     });
     return {
       visibility: note?.visibility ?? 'PRIVATE',
-      sharedWith: shares.map((s) => s.user),
+      sharedWith: shares.map((s) => ({ ...s.user, canEdit: s.canEdit })),
     };
   }
 
-  /** Replaces the grant set with the given users (active, non-owner only). */
-  async setShares(noteId: string, ownerId: string, userIds: string[]) {
+  /**
+   * Replaces the grant set with the given users (active, non-owner only), each
+   * at its requested level (canEdit true = editor, false = read-only). Existing
+   * grants are upserted so their seenAt survives a level change; users absent
+   * from the list are revoked.
+   */
+  async setShares(
+    noteId: string,
+    ownerId: string,
+    grants: { userId: string; canEdit: boolean }[],
+  ) {
+    const requestedIds = grants.map((g) => g.userId);
     const valid = await this.prisma.user.findMany({
-      where: { id: { in: userIds }, isActive: true, NOT: { id: ownerId } },
+      where: { id: { in: requestedIds }, isActive: true, NOT: { id: ownerId } },
       select: { id: true },
     });
-    const ids = valid.map((u) => u.id);
+    const validIds = new Set(valid.map((u) => u.id));
+    const editById = new Map(grants.map((g) => [g.userId, !!g.canEdit]));
+    const ids = [...validIds];
+
     await this.prisma.$transaction([
-      // Keep existing grants' seenAt: delete only removed users, add only new.
+      // Revoke grants for anyone no longer in the list (notIn: [] removes all).
       this.prisma.noteShare.deleteMany({
         where: { noteId, userId: { notIn: ids } },
       }),
-      ...(ids.length
-        ? [
-            this.prisma.noteShare.createMany({
-              data: ids.map((userId) => ({ noteId, userId })),
-              skipDuplicates: true,
-            }),
-          ]
-        : []),
+      // Upsert each remaining grant so seenAt is preserved while canEdit updates.
+      ...ids.map((userId) =>
+        this.prisma.noteShare.upsert({
+          where: { noteId_userId: { noteId, userId } },
+          create: { noteId, userId, canEdit: editById.get(userId) ?? false },
+          update: { canEdit: editById.get(userId) ?? false },
+        }),
+      ),
     ]);
     return this.getShares(noteId);
   }
@@ -624,18 +815,19 @@ export class NotesService {
     tx: Prisma.TransactionClient,
     noteId: string,
     content: unknown,
-  ): Promise<void> {
+  ): Promise<{ id: string; title: string }[]> {
     const self = await tx.note.findUnique({
       where: { id: noteId },
       select: { ownerId: true },
     });
-    if (!self) return;
+    if (!self) return [];
 
     const titles = extractWikilinks(content);
 
     // Resolve titles → target ids within the owner's namespace. One query for
     // all candidate matches, then pick per title (most-recent on ambiguity).
     const targetIds: string[] = [];
+    const resolved: { id: string; title: string }[] = [];
     if (titles.length > 0) {
       const candidates = await tx.note.findMany({
         where: {
@@ -655,7 +847,10 @@ export class NotesService {
         const match = candidates.find((c) => c.title.toLowerCase() === lower);
         if (!match) continue; // unresolved → no row
         if (match.id === noteId) continue; // skip self-links
-        if (!targetIds.includes(match.id)) targetIds.push(match.id);
+        if (!targetIds.includes(match.id)) {
+          targetIds.push(match.id);
+          resolved.push({ id: match.id, title: match.title });
+        }
       }
     }
 
@@ -667,6 +862,12 @@ export class NotesService {
         skipDuplicates: true,
       });
     }
+
+    // Return the resolved links (id + current title) in the same alphabetical
+    // order resolveLinks() uses, so callers can echo the fresh link set back to
+    // the client without a second round-trip.
+    resolved.sort((a, b) => a.title.localeCompare(b.title));
+    return resolved;
   }
 
   /**
@@ -691,7 +892,7 @@ export class NotesService {
         select: { tag: { select: { name: true } } },
         orderBy: { tag: { name: 'asc' as const } },
       },
-      shares: { where: { userId }, select: { seenAt: true } },
+      shares: { where: { userId }, select: { seenAt: true, canEdit: true } },
       owner: { select: { displayName: true } },
       lastEditedBy: { select: { displayName: true } },
     };
@@ -699,13 +900,18 @@ export class NotesService {
 
   private toSummary(note: NoteWithMeta, userId: string): NoteSummary {
     const grant = note.shares[0];
+    const isOwner = note.ownerId === userId;
+    // Editable when: owner, PUBLIC (everyone-editable), or an editor grant.
+    const canEdit =
+      isOwner || note.visibility === 'PUBLIC' || (grant?.canEdit ?? false);
     return {
       id: note.id,
       title: note.title,
       visibility: note.visibility,
       ownerId: note.ownerId,
       ownerName: note.owner.displayName,
-      isOwner: note.ownerId === userId,
+      isOwner,
+      canEdit,
       lastEditedByName: note.lastEditedBy?.displayName ?? null,
       position: note.position,
       pinned: note.pinned,

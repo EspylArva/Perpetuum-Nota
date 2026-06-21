@@ -1,4 +1,4 @@
-import type { ProseMirrorDoc, ProseMirrorMark, ProseMirrorNode } from '@stickynotes/shared';
+import type { ProseMirrorDoc, ProseMirrorMark, ProseMirrorNode } from '@perpetuum-nota/shared';
 
 /**
  * Converts a ProseMirror/TipTap JSON document to Markdown.
@@ -101,12 +101,69 @@ function renderBlock(node: ProseMirrorNode, listDepth: number): string | null {
       return '---';
     }
 
+    case 'table': {
+      return renderTable(node);
+    }
+
     default: {
       // Unknown block node: fall back to its text content so we never throw.
       const text = extractText(node);
       return text || null;
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Table rendering (GitHub-style pipe tables)
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders a TipTap `table` node as a GitHub-flavoured Markdown pipe table.
+ *
+ * Structure: table → tableRow[] → (tableHeader | tableCell)[] → block content.
+ * GFM tables require a header row + a separator row, and have no native way to
+ * express row/colspans or multi-block cells. We therefore:
+ *   - treat the FIRST row as the header (synthesising a blank header if the
+ *     table happens to start with body cells, so the output stays valid GFM);
+ *   - flatten each cell to single-line inline text (pipes escaped, newlines
+ *     collapsed) since GFM cells can't contain block structure.
+ */
+function renderTable(node: ProseMirrorNode): string {
+  const rows = (node.content ?? []).filter((r) => r.type === 'tableRow');
+  if (rows.length === 0) return '';
+
+  const grid = rows.map((row) =>
+    (row.content ?? [])
+      .filter((c) => c.type === 'tableCell' || c.type === 'tableHeader')
+      .map((cell) => renderTableCell(cell)),
+  );
+
+  // Normalise column count across rows (ragged tables from merged cells).
+  const cols = grid.reduce((max, r) => Math.max(max, r.length), 0);
+  if (cols === 0) return '';
+  for (const r of grid) {
+    while (r.length < cols) r.push('');
+  }
+
+  const [headerCells, ...bodyRows] = grid;
+  const lines: string[] = [];
+  lines.push(`| ${headerCells.join(' | ')} |`);
+  lines.push(`| ${Array.from({ length: cols }, () => '---').join(' | ')} |`);
+  for (const r of bodyRows) {
+    lines.push(`| ${r.join(' | ')} |`);
+  }
+
+  return lines.join('\n');
+}
+
+/** Flatten a table cell's block content to a single, pipe-safe inline string. */
+function renderTableCell(cell: ProseMirrorNode): string {
+  const text = renderChildren(cell.content ?? [], 0)
+    .join(' ')
+    .replace(/\r?\n+/g, ' ')
+    .trim();
+  // Escape pipes so cell content can't break the table grid.
+  return text.replace(/\|/g, '\\|');
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +282,12 @@ function renderInline(node: ProseMirrorNode): string {
     case 'inlineMath': {
       const latex = (node.attrs?.['latex'] as string | undefined) ?? '';
       return `$${latex}$`;
+    }
+
+    case 'wikilink': {
+      const title = (node.attrs?.['title'] as string | undefined) ?? '';
+      const heading = (node.attrs?.['heading'] as string | null | undefined) ?? null;
+      return heading ? `[[${title}#${heading}]]` : `[[${title}]]`;
     }
 
     default:

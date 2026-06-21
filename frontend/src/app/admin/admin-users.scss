@@ -1,20 +1,7 @@
-:host {
-  display: block;
-  min-height: 100dvh;
-  background: var(--mat-sys-surface);
-  color: var(--mat-sys-on-surface);
-}
-
-.bar {
-  background: var(--mat-sys-surface-container);
-  color: var(--mat-sys-on-surface);
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
-  .brand { font-weight: 700; font-size: 1.05rem; }
-}
-.spacer { flex: 1; }
+/* Embedded inside the Settings content column — no page chrome. */
+:host { display: block; color: var(--mat-sys-on-surface); }
 
 .content {
-  max-width: 900px; margin: 0 auto; padding: 1.5rem 1rem;
   display: flex; flex-direction: column; gap: 1.25rem;
 }
 
@@ -23,8 +10,8 @@
   border: 1px solid var(--mat-sys-outline-variant);
   border-radius: 16px;
   padding: 1.1rem 1.25rem;
-  h2 { margin: 0 0 0.5rem; font-size: 1.05rem; }
-  .hint { margin: 0 0 0.8rem; font-size: 0.82rem; color: var(--mat-sys-on-surface-variant); }
+  h2 { margin: 0 0 0.5rem; font-size: var(--sn-text-lg); }
+  .hint { margin: 0 0 0.8rem; font-size: var(--sn-text-sm); color: var(--mat-sys-on-surface-variant); }
 }
 
 .form {
@@ -32,18 +19,20 @@
   mat-form-field { flex: 1; min-width: 160px; width: auto; }
   .role { flex: 0 0 130px; min-width: 130px; }
 }
-.err { color: var(--mat-sys-error); font-size: 0.82rem; margin: 0.6rem 0 0; }
+.err { color: var(--mat-sys-error); font-size: var(--sn-text-sm); margin: 0.6rem 0 0; }
 
-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+table { width: 100%; border-collapse: collapse; font-size: var(--sn-text-base); }
 th, td {
   text-align: left; padding: 0.5rem 0.4rem;
   border-bottom: 1px solid var(--mat-sys-outline-variant);
 }
 th {
   color: var(--mat-sys-on-surface-variant);
-  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.4px;
+  font-size: var(--sn-text-xs); text-transform: uppercase; letter-spacing: 0.4px;
 }
 td.email { color: var(--mat-sys-on-surface-variant); }
 tr.inactive { opacity: 0.5; }
 .role-cell { width: 120px; --mat-form-field-container-height: 40px; --mat-form-field-container-vertical-padding: 8px; }
+.name-cell { width: 100%; min-width: 140px; --mat-form-field-container-height: 40px; --mat-form-field-container-vertical-padding: 8px; }
+td.name { min-width: 160px; }
 td.actions .delete { color: var(--mat-sys-error); opacity: 0.6; &:hover { opacity: 1; } }

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { buildFolderTree, type FolderNode } from './folder-tree.util';
-import type { FolderDto } from '@stickynotes/shared';
+import type { FolderDto } from '@perpetuum-nota/shared';
 
 const f = (
   id: string,
   name: string,
   parentId: string | null,
   noteCount = 0,
-): FolderDto => ({ id, name, parentId, noteCount });
+): FolderDto => ({ id, name, parentId, noteCount, wallX: null, wallY: null });
 
 /** Flattens the tree to "id@depth" tokens for compact assertions. */
 function flatten(nodes: FolderNode[]): string[] {

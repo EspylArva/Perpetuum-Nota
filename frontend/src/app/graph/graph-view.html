@@ -8,60 +8,105 @@
 </mat-toolbar>
 
 <div class="graph-body">
-  @if (loading()) {
-    <div class="graph-state">
-      <mat-spinner diameter="40" />
-    </div>
-  } @else if (error()) {
-    <div class="graph-state">
-      <p>Couldn't load the graph. <a routerLink="/">Back to notes</a></p>
-    </div>
-  } @else if (isEmpty()) {
-    <div class="graph-state">
-      <p>No notes to graph yet. Create notes and link them with
-        <code>[[Title]]</code>.</p>
-    </div>
-  } @else {
-    <svg
-      class="graph-svg"
-      [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
-      preserveAspectRatio="xMidYMid meet"
-      (mouseleave)="hovered.set(null)"
-    >
-      <!-- edges -->
-      <g class="edges">
-        @for (e of renderEdges(); track e.a.id + '|' + e.b.id) {
-          <line
-            class="edge"
-            [class.active]="e.active"
-            [class.dimmed]="hovered() && !e.active"
-            [attr.x1]="e.a.x" [attr.y1]="e.a.y"
-            [attr.x2]="e.b.x" [attr.y2]="e.b.y"
-          />
-        }
-      </g>
-      <!-- nodes -->
-      <g class="nodes">
-        @for (n of laidOutNodes(); track n.id) {
-          <a
-            [attr.href]="'/note/' + n.id"
-            class="node-link"
-            [class.dimmed]="dimmed(n.id)"
-            [class.highlighted]="highlighted(n.id)"
-            (click)="openNode(n.id, $event)"
-            (mouseenter)="hovered.set(n.id)"
-            (focus)="hovered.set(n.id)"
-            (blur)="hovered.set(null)"
-          >
-            <circle class="node" [attr.cx]="n.x" [attr.cy]="n.y" r="9" />
-            <text
-              class="node-label"
-              [attr.x]="n.x" [attr.y]="n.y + 24"
-              text-anchor="middle"
-            >{{ n.title || 'Untitled' }}</text>
-          </a>
-        }
-      </g>
-    </svg>
+  <div class="graph-stage" #stage>
+    @if (loading()) {
+      <div class="graph-state">
+        <mat-spinner diameter="40" />
+      </div>
+    } @else if (error()) {
+      <div class="graph-state">
+        <p>Couldn't load the graph. <a routerLink="/">Back to notes</a></p>
+      </div>
+    } @else if (isEmpty()) {
+      <div class="graph-state">
+        <p>No notes to graph yet. Create notes and link them with
+          <code>[[Title]]</code>.</p>
+      </div>
+    } @else {
+      <svg
+        #svg
+        class="graph-svg"
+        [class.panning]="panning()"
+        (wheel)="onWheel($event)"
+        (pointerdown)="onBackgroundPointerDown($event)"
+        (pointermove)="onPointerMove($event)"
+        (pointerup)="onPointerUp($event)"
+        (pointercancel)="onPointerUp($event)"
+        role="application"
+        aria-label="Wikilink graph — drag nodes, scroll to zoom, drag canvas to pan"
+      >
+        <g [attr.transform]="viewTransform()">
+          <!-- edges -->
+          <g class="edges">
+            @for (e of renderEdges(); track e.aId + '|' + e.bId) {
+              <line
+                class="edge"
+                [class.active]="e.active"
+                [class.dimmed]="hovered() && !e.active"
+                [attr.x1]="e.a.x" [attr.y1]="e.a.y"
+                [attr.x2]="e.b.x" [attr.y2]="e.b.y"
+              />
+            }
+          </g>
+          <!-- nodes -->
+          <g class="nodes">
+            @for (n of nodeList(); track n.id) {
+              <a
+                [attr.href]="'/note/' + n.id"
+                class="node-link"
+                [class.dimmed]="dimmed(n.id)"
+                [class.highlighted]="highlighted(n.id)"
+                [class.is-hovered]="isHovered(n.id)"
+                [class.selected]="selectedId() === n.id"
+                (click)="onNodeClick($event)"
+                (keydown.enter)="onNodeKeydown(n.id, $event)"
+                (pointerdown)="onNodePointerDown(n.id, $event)"
+                (pointerenter)="onHoverEnter(n.id)"
+                (pointerleave)="onHoverLeave(n.id)"
+                (focus)="hovered.set(n.id)"
+                (blur)="hovered.set(null)"
+              >
+                <circle class="node" [attr.cx]="pos(n.id).x" [attr.cy]="pos(n.id).y" r="9" />
+                <text
+                  class="node-label"
+                  [attr.x]="pos(n.id).x" [attr.y]="pos(n.id).y + 24"
+                  text-anchor="middle"
+                >{{ n.title || 'Untitled' }}</text>
+              </a>
+            }
+          </g>
+        </g>
+      </svg>
+
+      <!-- zoom controls -->
+      <div class="graph-controls">
+        <button matIconButton matTooltip="Zoom in" aria-label="Zoom in" (click)="zoomIn()">
+          <mat-icon>add</mat-icon>
+        </button>
+        <button matIconButton matTooltip="Zoom out" aria-label="Zoom out" (click)="zoomOut()">
+          <mat-icon>remove</mat-icon>
+        </button>
+        <button matIconButton matTooltip="Reset view" aria-label="Reset view" (click)="resetView()">
+          <mat-icon>center_focus_strong</mat-icon>
+        </button>
+      </div>
+    }
+  </div>
+
+  @if (selectedId(); as id) {
+    <aside class="side-sheet">
+      <header class="side-sheet__bar">
+        <span class="side-sheet__title">{{ selectedTitle() }}</span>
+        <button matIconButton matTooltip="Close" aria-label="Close" (click)="closeSheet()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </header>
+      <app-note-editor
+        class="side-sheet__editor"
+        [noteId]="id"
+        [editable]="true"
+        [exportName]="selectedTitle()"
+      />
+    </aside>
   }
 </div>

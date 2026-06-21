@@ -1,7 +1,8 @@
 @for (node of roots(); track node.id) {
   <div class="folder-node">
     <div class="folder-row" [class.active]="node.id === activeId()"
-         [style.paddingLeft.px]="8 + node.depth * 14">
+         [style.paddingLeft.px]="8 + node.depth * 14"
+         (contextmenu)="$event.preventDefault(); $event.stopPropagation(); fm.openMenu()">
       @if (node.children.length > 0) {
         <button type="button" class="twisty" (click)="toggle.emit(node.id)"
                 [attr.aria-label]="isExpanded(node.id) ? 'Collapse' : 'Expand'">
@@ -10,14 +11,13 @@
       } @else {
         <span class="twisty-spacer"></span>
       }
-      <button type="button" class="folder-name" (click)="select.emit(node.id)"
-              [matTooltip]="node.name">
+      <button type="button" class="folder-name" (click)="select.emit(node.id)">
         <mat-icon inline class="folder-ico">folder</mat-icon>
         <span class="name-text">{{ node.name }}</span>
         <span class="count">{{ node.noteCount }}</span>
       </button>
       <button type="button" class="folder-menu-btn" [matMenuTriggerFor]="folderMenu"
-              (click)="$event.stopPropagation()" aria-label="Folder actions">
+              #fm="matMenuTrigger" (click)="$event.stopPropagation()" aria-label="Folder actions">
         <mat-icon inline>more_vert</mat-icon>
       </button>
       <mat-menu #folderMenu="matMenu">
@@ -26,6 +26,9 @@
         </button>
         <button mat-menu-item (click)="rename.emit(node)">
           <mat-icon>edit</mat-icon><span>Rename</span>
+        </button>
+        <button mat-menu-item (click)="moveTo.emit(node)">
+          <mat-icon>drive_file_move</mat-icon><span>Move to…</span>
         </button>
         <button mat-menu-item (click)="remove.emit(node)">
           <mat-icon>delete</mat-icon><span>Delete</span>
@@ -42,6 +45,7 @@
         (toggle)="toggle.emit($event)"
         (newSubfolder)="newSubfolder.emit($event)"
         (rename)="rename.emit($event)"
+        (moveTo)="moveTo.emit($event)"
         (remove)="remove.emit($event)" />
     }
   </div>

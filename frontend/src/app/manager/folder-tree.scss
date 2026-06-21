@@ -65,13 +65,22 @@
   cursor: pointer;
   text-align: left;
   padding: 0.3rem 0.2rem;
-  font: inherit;
-  font-size: 0.85rem;
+  /* Match the sidebar's Material list items (tags / nav), which render at the
+     `body-large` typescale — so the Folders section reads at the same size as
+     the rest of the sidebar instead of looking smaller. */
+  font: var(--mat-sys-body-large);
 
   .folder-ico {
+    /* Flex-centre the glyph in an exact box so it has no stray top/bottom space
+       and sits on the row's vertical centre (mat-icon[inline] otherwise renders
+       on the text baseline and drifts). */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font-size: 1.05rem;
     width: 1.05rem;
     height: 1.05rem;
+    line-height: 1;
     flex: 0 0 auto;
     color: var(--mat-sys-on-surface-variant);
   }
@@ -85,7 +94,7 @@
 
   .count {
     flex: 0 0 auto;
-    font-size: 0.72rem;
+    font-size: var(--sn-text-xs);
     color: var(--mat-sys-on-surface-variant);
     padding-left: 0.2rem;
   }

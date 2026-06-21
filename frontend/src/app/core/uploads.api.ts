@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import type { ImageUploadResultDto } from '@stickynotes/shared';
+import type { ImageUploadResultDto } from '@perpetuum-nota/shared';
 
 @Injectable({ providedIn: 'root' })
 export class UploadsApi {

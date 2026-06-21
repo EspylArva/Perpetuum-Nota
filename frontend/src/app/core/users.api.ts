@@ -6,7 +6,7 @@ import type {
   UpdateUserDto,
   UserAdminDto,
   UserDto,
-} from '@stickynotes/shared';
+} from '@perpetuum-nota/shared';
 
 @Injectable({ providedIn: 'root' })
 export class UsersApi {

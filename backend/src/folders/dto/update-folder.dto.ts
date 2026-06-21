@@ -1,4 +1,5 @@
 import {
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
@@ -20,4 +21,14 @@ export class UpdateFolderDto {
   @ValidateIf((o: UpdateFolderDto) => o.parentId !== null)
   @IsUUID()
   parentId?: string | null;
+
+  // Wall-view grid coordinates (cell units). Omitting them leaves placement
+  // unchanged; set both when dropping a folder card on the grid.
+  @IsOptional()
+  @IsInt()
+  wallX?: number;
+
+  @IsOptional()
+  @IsInt()
+  wallY?: number;
 }

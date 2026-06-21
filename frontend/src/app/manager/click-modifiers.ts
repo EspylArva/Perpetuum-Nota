@@ -11,7 +11,9 @@
  *  - Shift click → open in a new window
  *  - Alt click → download / browser-specific behaviour
  *
- * Pure and framework-agnostic so it can be unit-tested without a DOM.
+ * Still used by the graph view and wikilink pills, where a modified click is
+ * meant to hand off to the browser. Pure and framework-agnostic so it can be
+ * unit-tested without a DOM.
  */
 export function shouldOpenInApp(event: {
   button?: number;
@@ -26,4 +28,25 @@ export function shouldOpenInApp(event: {
     return false;
   }
   return true;
+}
+
+/**
+ * For the in-app List-mode tab strip: decides whether a click that opens a note
+ * should open it in a BACKGROUND tab (added to the strip without stealing focus)
+ * rather than the foreground/active tab. Mirrors the browser's own new-tab
+ * conventions, but stays in-app — the List rows no longer open an OS browser tab.
+ *
+ * Returns `true` (open in the background) for Ctrl / Cmd / Shift / Alt or a
+ * middle-click; `false` (foreground, focus the new tab) for a plain primary
+ * click. Pure and framework-agnostic.
+ */
+export function opensInBackground(event: {
+  button?: number;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  shiftKey?: boolean;
+  altKey?: boolean;
+}): boolean {
+  if (event.button === 1) return true; // middle-click
+  return !!(event.ctrlKey || event.metaKey || event.shiftKey || event.altKey);
 }

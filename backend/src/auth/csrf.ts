@@ -6,7 +6,7 @@ export const CSRF_HEADER = 'x-csrf-token';
 // Constant double-submit identifier (no server-side session). Binding to the
 // auth cookie would break a token issued before login; double-submit security
 // does not depend on it.
-const SESSION_ID = 'stickynotes';
+const SESSION_ID = 'perpetuum-nota';
 
 /**
  * Double-submit-cookie CSRF protection. The token is delivered in a readable

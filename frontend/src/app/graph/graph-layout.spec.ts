@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   GraphEdgeInput,
   GraphNodeInput,
+  createSimState,
   hashString,
   layoutGraph,
   nodeDistance,
+  stepSim,
 } from './graph-layout';
 
 function node(id: string): GraphNodeInput {
@@ -107,5 +109,55 @@ describe('layoutGraph', () => {
       { a: 'a', b: 'b' }, // valid
     ]);
     expect(out.edges).toEqual([{ a: 'a', b: 'b' }]);
+  });
+});
+
+describe('createSimState / stepSim', () => {
+  it('seeds deterministically and matches layoutGraph after the same steps', () => {
+    const nodes = ['a', 'b', 'c', 'd'].map(node);
+    const edges: GraphEdgeInput[] = [
+      { a: 'a', b: 'b' },
+      { a: 'c', b: 'd' },
+    ];
+    const s = createSimState(nodes, edges);
+    for (let i = 0; i < 250; i++) stepSim(s, 1);
+    const out = layoutGraph(nodes, edges); // default 250 iterations
+    out.nodes.forEach((n) => {
+      const i = s.index.get(n.id)!;
+      expect(s.px[i]).toBeCloseTo(n.x, 6);
+      expect(s.py[i]).toBeCloseTo(n.y, 6);
+    });
+  });
+
+  it('filters self-edges and missing endpoints in adj/edges', () => {
+    const s = createSimState([node('a'), node('b')], [
+      { a: 'a', b: 'a' },
+      { a: 'a', b: 'ghost' },
+      { a: 'a', b: 'b' },
+    ]);
+    expect(s.edges).toEqual([{ a: 'a', b: 'b' }]);
+    expect(s.adj).toHaveLength(1);
+  });
+
+  it('holds a pinned node fixed while neighbours move', () => {
+    const nodes = ['a', 'b', 'c'].map(node);
+    const edges: GraphEdgeInput[] = [
+      { a: 'a', b: 'b' },
+      { a: 'b', b: 'c' },
+    ];
+    const s = createSimState(nodes, edges);
+    const pinIdx = s.index.get('a')!;
+    s.px[pinIdx] = 123;
+    s.py[pinIdx] = 456;
+    const pinned = new Set([pinIdx]);
+    const before = { x: s.px[pinIdx], y: s.py[pinIdx] };
+    const otherBefore = { x: s.px[s.index.get('b')!], y: s.py[s.index.get('b')!] };
+    for (let i = 0; i < 20; i++) stepSim(s, 1, pinned);
+    expect(s.px[pinIdx]).toBe(before.x);
+    expect(s.py[pinIdx]).toBe(before.y);
+    const otherAfter = { x: s.px[s.index.get('b')!], y: s.py[s.index.get('b')!] };
+    expect(
+      otherAfter.x !== otherBefore.x || otherAfter.y !== otherBefore.y,
+    ).toBe(true);
   });
 });

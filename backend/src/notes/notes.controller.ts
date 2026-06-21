@@ -17,6 +17,7 @@ import { NoteAccess } from '../common/note-access.decorator';
 import { NoteAccessGuard } from '../common/note-access.guard';
 import { BatchDeleteDto } from './dto/batch-delete.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
+import { ImportNotesDto } from './dto/import-notes.dto';
 import { ReorderNotesDto } from './dto/reorder-notes.dto';
 import { SetSharesDto } from './dto/set-shares.dto';
 import { SetTagsDto } from './dto/set-tags.dto';
@@ -33,7 +34,10 @@ function normalizeFilter(value?: string): NoteFilter {
 }
 
 function normalizeSort(value?: string): NoteSort | undefined {
-  return value === 'updated' || value === 'created' || value === 'title'
+  return value === 'updated' ||
+    value === 'created' ||
+    value === 'title' ||
+    value === 'dueDate'
     ? value
     : undefined; // default = explicit position order
 }
@@ -43,6 +47,11 @@ function parseDate(value?: string): Date | undefined {
   if (!value) return undefined;
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+/** Truthy query flag: `?x=1` / `?x=true` → true; anything else → false. */
+function parseFlag(value?: string): boolean {
+  return value === '1' || value === 'true';
 }
 
 // Static routes are declared before ':id' routes so they aren't captured as ids.
@@ -100,6 +109,37 @@ export class NotesController {
     @Body() dto: BatchDeleteDto,
   ) {
     return this.notes.batchDelete(user.id, dto.ids);
+  }
+
+  // Data management: collect the selected scopes of notes (with content) for a
+  // client-side export. Declared before ':id' so "export" isn't read as an id.
+  @Get('export')
+  async exportNotes(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('mine') mine?: string,
+    @Query('shared') shared?: string,
+    @Query('public') pub?: string,
+  ) {
+    const notes = await this.notes.exportNotes(user.id, {
+      mine: parseFlag(mine),
+      shared: parseFlag(shared),
+      public: parseFlag(pub),
+    });
+    return {
+      exportedAt: new Date().toISOString(),
+      count: notes.length,
+      notes,
+    };
+  }
+
+  // Data management: bulk-create notes the client parsed from Markdown files.
+  @Post('import')
+  @HttpCode(200)
+  importNotes(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ImportNotesDto,
+  ) {
+    return this.notes.importNotes(user.id, dto.notes);
   }
 
   // No NoteAccessGuard: the service self-filters to notes the user owns.
@@ -179,7 +219,7 @@ export class NotesController {
 
   @Put(':id/tags')
   @UseGuards(NoteAccessGuard)
-  @NoteAccess('edit')
+  @NoteAccess('manage')
   setTags(
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -190,26 +230,26 @@ export class NotesController {
 
   @Patch(':id/visibility')
   @UseGuards(NoteAccessGuard)
-  @NoteAccess('edit')
+  @NoteAccess('manage')
   setVisibility(@Param('id') id: string, @Body() dto: SetVisibilityDto) {
     return this.notes.setVisibility(id, dto.visibility);
   }
 
   @Get(':id/shares')
   @UseGuards(NoteAccessGuard)
-  @NoteAccess('edit')
+  @NoteAccess('manage')
   getShares(@Param('id') id: string) {
     return this.notes.getShares(id);
   }
 
   @Put(':id/shares')
   @UseGuards(NoteAccessGuard)
-  @NoteAccess('edit')
+  @NoteAccess('manage')
   setShares(
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: SetSharesDto,
   ) {
-    return this.notes.setShares(id, user.id, dto.userIds);
+    return this.notes.setShares(id, user.id, dto.grants);
   }
 }

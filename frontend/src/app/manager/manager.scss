@@ -1,5 +1,3 @@
-@use './wall-grid' as *;
-
 :host {
   display: flex;
   flex-direction: column;
@@ -15,75 +13,112 @@
   border-bottom: 1px solid var(--mat-sys-outline-variant);
   gap: 0.25rem;
 
-  .brand { font-weight: 700; font-size: 1.05rem; }
-  .who { font-size: 0.85rem; opacity: 0.75; margin: 0 0.4rem; }
+  .brand { font-weight: 700; font-size: var(--sn-text-lg); }
+  /* The current user's name as a pill. Not interactive yet, but styled like a
+     chip/button so it can become a clickable account button later. */
+  .who {
+    display: inline-block;
+    font-size: var(--sn-text-sm);
+    font-weight: 600;
+    line-height: 1.2;
+    margin: 0 0.4rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    color: var(--mat-sys-on-secondary-container);
+    background: var(--mat-sys-secondary-container);
+    border: 1px solid var(--mat-sys-outline-variant);
+    white-space: nowrap;
+    max-width: 14rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 .spacer { flex: 1; }
 
 /* ---- shell: sidenav + content ---- */
-.layout { flex: 1; min-height: 0; background: transparent; }
+/* The mat-sidenav-container paints the area BEHIND the drawer; Material defaults
+   it to --mat-sys-background, which differs from the content pane (--mat-sys-
+   surface). Pin it to surface so the backdrop matches mat-sidenav-content. */
+.layout { flex: 1; min-height: 0; background: var(--mat-sys-surface-container-lowest); }
 
 .sidebar {
-  width: 230px;
+  /* Width is border-box so padding is included: it sits ~248px wide regardless
+     of box model, leaving room for the 200px New-note button + the reserved
+     vertical-scrollbar gutter without a horizontal scrollbar. */
+  box-sizing: border-box;
+  width: 248px;
   padding: 0.75rem 0.6rem;
   background: var(--mat-sys-surface-container-low);
   border-right: 1px solid var(--mat-sys-outline-variant);
   transition: width 200ms ease;
   overflow: hidden;
 
-  .new-note { width: 100%; margin-bottom: 0.6rem; }
+  /* Material wraps the projected content in .mat-drawer-inner-container; make
+     that a flex column so the calendar can be pinned to the bottom of the rail
+     (see .cal-aux { margin-top: auto } below) while everything above keeps
+     its natural top-down flow and scrolls when it overflows.
 
-  .tags-head {
-    margin: 0.8rem 0 0.2rem;
-    padding: 0 0.8rem;
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--mat-sys-on-surface-variant);
+     `scrollbar-gutter: stable` permanently reserves the vertical scrollbar's
+     space so its appearance never overlaps/truncates the content; `overflow-x:
+     hidden` kills the otherwise-permanent horizontal scrollbar (content is sized
+     to fit the gutter, so nothing meaningful is clipped). */
+  ::ng-deep .mat-drawer-inner-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
   }
+
+  /* Fixed size so it doesn't stretch/animate with the rail width. */
+  .new-note {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 200px;
+    min-height: 40px;
+    margin: 0 auto 0.6rem;
+  }
+
   .tag-list [matListItemMeta] {
-    font-size: 0.75rem;
+    font-size: var(--sn-text-xs);
     color: var(--mat-sys-on-surface-variant);
     align-self: center;
   }
 
-  /* ---- folders ---- */
-  .folders-section { margin-top: 0.4rem; padding: 0 0.4rem; }
-  .folders-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-right: 0.4rem;
-
-    .folders-add {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border: none;
-      background: transparent;
-      color: var(--mat-sys-on-surface-variant);
-      cursor: pointer;
-      width: 26px; height: 26px;
-      border-radius: 4px;
-      &:hover {
-        background: var(--mat-sys-surface-container-high);
-        color: var(--mat-sys-on-surface);
-      }
-      mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
-    }
-  }
-  .folders-empty {
+  /* ---- auxiliary sections (tags / folders / calendar) ---- */
+  /* The uniform title bar + collapse behavior lives in app-collapsible-section;
+     these rules style the content projected into each section's body. */
+  .aux-empty {
     margin: 0.2rem 0.6rem;
-    font-size: 0.78rem;
+    font-size: var(--sn-text-xs);
     color: var(--mat-sys-on-surface-variant);
   }
 
-  /* ---- sidebar calendar ---- */
-  .cal-section { margin-top: 0.6rem; }
+  /* "New folder" button projected into the Folders header action slot. */
+  .folders-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--mat-sys-on-surface-variant);
+    cursor: pointer;
+    width: 26px; height: 26px;
+    border-radius: 4px;
+    &:hover {
+      background: var(--mat-sys-surface-container-high);
+      color: var(--mat-sys-on-surface);
+    }
+    mat-icon { font-size: 1.1rem; width: 1.1rem; height: 1.1rem; }
+  }
+
+  /* ---- sidebar calendar (pinned to the bottom of the rail) ---- */
+  .cal-aux { margin-top: auto; }
   .cal-wrap {
     /* mat-calendar sizes off its width; shrink to fit the narrow sidebar. */
-    font-size: 0.8rem;
+    font-size: var(--sn-text-sm);
     ::ng-deep mat-calendar { width: 100%; }
 
     /* Day with ≥1 due note: a small dot under the date number. dateClass adds
@@ -100,38 +135,122 @@
         background: var(--mat-sys-primary);
       }
     }
+
+    /* Active [start..end] range filter: a translucent primary band across every
+       in-range day so the whole span reads as selected. dateClass adds
+       `.in-range` (+ `.range-start` / `.range-end` on the caps) to the cell;
+       tinting the cell (not its inner content) gives an edge-to-edge band, and
+       the rounded caps close the ends. Kept translucent so it sits under — and
+       doesn't fight — Material's solid selected-day highlight on the endpoints. */
+    ::ng-deep .mat-calendar-body-cell.in-range::before {
+      content: '';
+      position: absolute;
+      inset: 8% 0;
+      background: color-mix(in srgb, var(--mat-sys-primary) 18%, transparent);
+      z-index: 0;
+    }
+    ::ng-deep .mat-calendar-body-cell.range-start::before {
+      left: 8%;
+      border-top-left-radius: 999px;
+      border-bottom-left-radius: 999px;
+    }
+    ::ng-deep .mat-calendar-body-cell.range-end::before {
+      right: 8%;
+      border-top-right-radius: 999px;
+      border-bottom-right-radius: 999px;
+    }
+    /* Keep the date number above the band. */
+    ::ng-deep .mat-calendar-body-cell.in-range .mat-calendar-body-cell-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* The month grid repeats the month/year as a label inside the body —
+       redundant with the header's period button. Hide its text and collapse its
+       box so no blank row remains. Scoped to .mat-month-view so the year /
+       multi-year navigation labels are untouched; opacity (not display) keeps the
+       first-week offset cell's colspan intact so the days stay aligned. */
+    ::ng-deep mat-month-view .mat-calendar-body-label {
+      opacity: 0;
+      padding: 0;
+      height: 0;
+      line-height: 0;
+      display: none;
+    }
   }
 
   /* ---- collapsed desktop icon-rail ---- */
+  /* Narrow rail: every text label is hidden and what remains (the nav icons and
+     the New-note button) is centered in the 56px column with even padding. */
   &.sidebar--collapsed {
     width: 56px;
-    padding: 0.75rem 0;
+    padding: 0.6rem 0;
 
+    /* Drop the reserved scrollbar gutter here. In the wide rail `scrollbar-gutter:
+       stable` (set on .mat-drawer-inner-container above) reserves ~15px on the
+       inline-end edge so the scrollbar never overlaps content — harmless at 248px,
+       but in this 56px rail it shrinks the usable width to ~41px and pushes every
+       centered item (New-note button, nav icons) left of the rail's true center.
+       Releasing it back to `auto` makes the full 56px centerable; the collapsed
+       rail holds only a handful of icons, so an overlay scrollbar (if it ever
+       overflows) is acceptable. */
+    ::ng-deep .mat-drawer-inner-container {
+      scrollbar-gutter: auto;
+    }
+
+    /* Hide all text + the label-only sections; only icons survive. */
     .new-note span,
-    .tags-head,
-    .tag-list,
-    .cal-section,
-    .folders-section,
+    app-collapsible-section,
     [matListItemTitle],
     [matListItemMeta] {
       display: none;
     }
 
+    /* New note → a centered, square icon button. The button is inline-flex by
+       default, so `margin: auto` can't center it — make it block-level flex so
+       the auto margins resolve and the icon stays centered inside. */
     .new-note {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       min-width: 0;
       width: 40px;
-      margin: 0 auto 0.6rem;
+      height: 40px;
+      margin: 0 auto 0.5rem;
       padding: 0;
 
       mat-icon { margin: 0; }
     }
 
+    /* Nav rows collapse to centered, circular icon targets. The nav list becomes
+       a flex column so `align-items: center` horizontally centers each item in
+       the 56px rail; each item is then a fixed 40px square with a small, equal
+       margin all round. M3 paints the activated highlight (and ripple) on the
+       item host shaped by --mat-list-active-indicator-shape, so forcing that to
+       50% on a square host makes the highlight a true circle. */
     mat-nav-list {
       padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      --mat-list-active-indicator-shape: 50%;
+
       a[mat-list-item] {
+        width: 40px;
+        height: 40px;
+        min-height: 40px;
+        margin: 0.15rem;
         padding: 0;
+        border-radius: 50%;
+
+        /* Center the icon on both axes inside the square item (the label is
+           hidden in this collapsed state, so the icon is the only child).
+           MDC gives the leading icon asymmetric margins (16px left / 32px right)
+           to reserve label space; zero them so flex-centering lands the glyph
+           dead-center rather than centering the icon-plus-margins box. */
+        display: flex;
+        align-items: center;
         justify-content: center;
-        mat-icon { margin: 0 auto; }
       }
     }
   }
@@ -158,9 +277,49 @@
     --mat-button-filled-container-color: var(--mat-sys-error);
     --mat-button-filled-label-text-color: var(--mat-sys-on-error);
   }
-  .trash-note { font-size: 0.82rem; color: var(--mat-sys-on-surface-variant); }
+  .trash-note { font-size: var(--sn-text-sm); color: var(--mat-sys-on-surface-variant); }
   /* Select-all toggle: tinted while every visible note is selected. */
   .active { color: var(--mat-sys-primary); }
+
+  /* Vertical rule separating the selection actions (left) from the persistent
+     filter / select-all group (right). */
+  .toolbar-sep {
+    width: 1px;
+    height: 1.5rem;
+    margin: 0 0.15rem;
+    background: var(--mat-sys-outline-variant);
+  }
+
+  /* Unpin state of the single pin toggle: a diagonal strike over the tack turns
+     it into a "crossed board tack" (the icon font has no off-pin glyph). The
+     slash rides on a wider background-coloured line, leaving a clear gap on each
+     side so it reads as a distinct strike instead of merging into the tack. */
+  .pin-crossed {
+    position: relative;
+
+    &::before,
+    &::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: -4%;
+      height: 108%;
+      border-radius: 2px;
+      transform: translateX(-50%) rotate(45deg);
+    }
+
+    /* Halo: the gap around the slash (matches the toolbar surface). */
+    &::before {
+      width: 8px;
+      background: var(--mat-sys-surface-container-lowest);
+    }
+
+    /* The slash itself. */
+    &::after {
+      width: 2px;
+      background: currentColor;
+    }
+  }
 }
 
 /* Zero-size anchor pinned at the cursor; the right-click Material menu attaches
@@ -180,15 +339,34 @@
   background: var(--mat-sys-surface-container-lowest);
 }
 .filter-chip {
-  display: inline-flex; align-items: center; gap: 0.25rem;
-  font-size: 0.78rem; font-weight: 600;
-  padding: 0.1rem 0.25rem 0.1rem 0.6rem; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-size: var(--sn-text-xs); font-weight: 600;
+  padding: 0.2rem 0.3rem 0.2rem 0.6rem; border-radius: 999px;
   background: var(--mat-sys-secondary-container);
   color: var(--mat-sys-on-secondary-container);
-  mat-icon { font-size: 1rem; width: 1rem; height: 1rem; }
+
+  /* Leading icon: flex-centre the glyph in an exact box so it has no stray
+     top/bottom space and sits on the chip's vertical centre. */
+  .filter-chip-ico {
+    flex: 0 0 auto;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1rem; height: 1rem; font-size: 1rem; line-height: 1;
+  }
+  .filter-chip-label { line-height: 1.3; }
+
+  /* Plain round close button — flex-centred (avoids matIconButton's oversized
+     touch target throwing the × off-centre in such a small control). */
   .filter-chip-x {
-    width: 26px; height: 26px; line-height: 26px;
-    mat-icon { font-size: 1rem; width: 1rem; height: 1rem; }
+    flex: 0 0 auto;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; padding: 0;
+    border: none; border-radius: 50%;
+    background: transparent; color: inherit; cursor: pointer;
+    &:hover { background: color-mix(in srgb, currentColor 16%, transparent); }
+    mat-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px; font-size: 16px; line-height: 1;
+    }
   }
 }
 
@@ -208,8 +386,10 @@
 .list-layout:not(.split) .pane { display: none; }
 
 .row {
+  position: relative;
   display: flex; align-items: flex-start; gap: 0.25rem;
   padding: 0.45rem 0.4rem;
+  margin: 0.25rem 0;
   border-radius: 10px;
   cursor: default;
 
@@ -217,7 +397,12 @@
   &.open { background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); }
   &.checked { outline: 2px solid var(--mat-sys-primary); outline-offset: -2px; }
 
-  .row-check { margin-top: 0.1rem; }
+  /* Selection checkbox: vertically centered in the row regardless of height. */
+  .row-check { align-self: center; }
+  /* Reserve a left gutter for the corner pin badge (shared `.pin-ico`, always
+     rendered) so it stays clear of the checkbox and title. The gutter is
+     permanent, so pinning / unpinning never shifts the row's contents. */
+  &:has(> .pin-ico) { padding-left: 1.55rem; }
   /* row-main is an <a> (deep link) so Ctrl/middle-click opens a new tab; reset
      the default anchor look so it still reads as a plain list row. */
   .row-main {
@@ -226,32 +411,151 @@
     &:hover, &:focus { text-decoration: none; color: inherit; }
   }
   .row-title {
-    font-weight: 600; font-size: 0.9rem;
+    font-weight: 600; font-size: var(--sn-text-base);
     display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;
   }
   .row-preview {
-    font-size: 0.78rem; color: var(--mat-sys-on-surface-variant);
+    font-size: var(--sn-text-xs); color: var(--mat-sys-on-surface-variant);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .row-tags { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-top: 0.2rem; }
   .row-meta {
-    font-size: 0.7rem; color: var(--mat-sys-on-surface-variant);
+    font-size: var(--sn-text-2xs); color: var(--mat-sys-on-surface-variant);
     margin-top: 0.25rem;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
+  /* Pin / delete / restore actions stay hidden until the row is hovered (or
+     focused, for keyboard users). Pinned state is still shown by the .pin-ico
+     in the top-left corner, so hiding the pin button here loses no information. */
   .row-act {
-    opacity: 0.45;
-    &:hover { opacity: 1; }
-    &.pinned { opacity: 1; color: var(--mat-sys-primary); }
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+    &.pinned { color: var(--mat-sys-primary); }
     &.restore { color: var(--mat-sys-tertiary); }
   }
-  .drag-handle { cursor: grab; touch-action: none; &:active { cursor: grabbing; } }
+  &:hover .row-act,
+  &:focus-within .row-act { opacity: 0.7; pointer-events: auto; }
+  &:hover .row-act:hover { opacity: 1; }
+
+  .row-action-buttons {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-self: stretch;
+  }
+
+  /* Drag-to-reorder grip: a full-height strip pinned to the right edge, always
+     visible (not hover-gated like the action buttons). The negative margins
+     bleed into the row's padding so it spans the full row box, and the right
+     corners match the row's 10px radius. */
+  .drag-handle {
+    flex: 0 0 auto;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    margin: -0.45rem -0.4rem -0.45rem 0;
+    border-radius: 0 10px 10px 0;
+    color: var(--mat-sys-on-surface-variant);
+    cursor: grab;
+    touch-action: none;
+    &:hover { background: var(--mat-sys-surface-container-high); color: var(--mat-sys-on-surface); }
+    &:active { cursor: grabbing; }
+  }
 }
 
-.pin-ico { font-size: 0.9rem; color: var(--mat-sys-primary); }
+/* Pinned indicator: a small status badge anchored to the top-left corner of its
+   container — the list row, grid card, or folder mini-tile, each made a
+   positioning context with a reserved gutter so the badge never overlaps a
+   checkbox, button, or text. Purely informational: never selectable, never
+   clickable (pin / unpin lives on the dedicated action button). */
+.pin-ico {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.4rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  font-size: 0.9rem;
+  line-height: 0.9rem;
+  color: var(--mat-sys-primary);
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+
+  /* Always rendered (so its reserved gutter is permanent and pinning a note
+     never shifts surrounding elements); only its visibility tracks `pinned`. */
+  &.unpinned { visibility: hidden; }
+}
 
 .pane { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+/* ---- list-mode tab strip ---- */
+.tab-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 4px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--mat-sys-surface-container-low);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 4px 5px 10px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface-variant);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+
+  &:hover { background: var(--mat-sys-surface-container-high); }
+  &.active {
+    background: var(--mat-sys-surface);
+    color: var(--mat-sys-on-surface);
+    border-color: var(--mat-sys-primary);
+  }
+
+  .tab-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+    font-size: var(--sn-text-sm);
+  }
+  .tab-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    flex: 0 0 auto;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.7;
+    &:hover { background: var(--mat-sys-surface-container-highest); opacity: 1; }
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      line-height: 16px;
+    }
+  }
+}
+.tab-strip.cdk-drop-list-dragging .tab:not(.cdk-drag-placeholder) {
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
 
 /* ---- drag & drop (CDK) ---- */
 .cdk-drag-preview { box-shadow: var(--mat-sys-level3); border-radius: 10px; }
@@ -271,7 +575,7 @@
 
 .pane-meta {
   padding: 0.3rem 0.85rem;
-  font-size: 0.72rem; color: var(--mat-sys-on-surface-variant);
+  font-size: var(--sn-text-xs); color: var(--mat-sys-on-surface-variant);
   border-bottom: 1px solid var(--mat-sys-outline-variant);
   background: var(--mat-sys-surface-container-low);
 }
@@ -281,7 +585,7 @@
 .title-input {
   flex: 1; min-width: 0;
   border: none; background: transparent;
-  font-size: 1.05rem; font-weight: 700;
+  font-size: var(--sn-text-lg); font-weight: 700;
   color: var(--mat-sys-on-surface);
   outline: none;
   &::placeholder { color: var(--mat-sys-on-surface-variant); }
@@ -291,7 +595,7 @@
 /* ---- tags ---- */
 .chip {
   display: inline-flex; align-items: center;
-  font-size: 0.68rem; font-weight: 600;
+  font-size: var(--sn-text-2xs); font-weight: 600;
   color: var(--sn-chip-on);
   background: var(--sn-chip);
   border-radius: 999px;
@@ -322,14 +626,37 @@
   .tag-input {
     flex: 1 1 110px; min-width: 110px;
     border: none; background: transparent;
-    font-size: 0.85rem; color: var(--mat-sys-on-surface);
+    font-size: var(--sn-text-sm); color: var(--mat-sys-on-surface);
     outline: none; padding: 0.35rem 0;
     &::placeholder { color: var(--mat-sys-on-surface-variant); }
+  }
+
+  /* Deterministic tag tint on the edition chips, matching the list/wall pills.
+     Material paints the chip surface via the `--mdc-chip-elevated-container-color`
+     token on the host, which would otherwise cover the host inline background.
+     Setting that token (and the hover/focus overlay) to transparent lets the
+     host's inline `[style.background]`/`[style.color]` (tagColor) show through.
+     The matChipRemove (x) inherits the chip's foreground so it stays legible. */
+  ::ng-deep mat-chip-row.tag-chip-row {
+    --mdc-chip-elevated-container-color: transparent;
+    --mdc-chip-elevated-disabled-container-color: transparent;
+    --mdc-chip-label-text-color: inherit;
+    --mdc-chip-with-trailing-icon-trailing-icon-color: currentColor;
+    --mdc-chip-with-icon-icon-color: currentColor;
+
+    .mat-mdc-chip-focus-overlay { background: transparent; }
+    .mdc-evolution-chip__text-label,
+    .mat-mdc-chip-action-label { color: inherit; }
+    .mat-mdc-chip-remove {
+      color: currentColor;
+      opacity: 0.85;
+      &:hover { opacity: 1; }
+    }
   }
 }
 
 .badge {
-  font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 999px; font-weight: 700;
+  font-size: var(--sn-text-2xs); padding: 0.1rem 0.4rem; border-radius: 999px; font-weight: 700;
   &.pub { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
   &.shared { background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); }
   &.new { background: var(--mat-sys-error); color: var(--mat-sys-on-error); }
@@ -345,7 +672,7 @@
    (within 48h), muted when passed. Material tokens keep both themes legible. */
 .due-chip {
   display: inline-flex; align-items: center; gap: 0.15rem;
-  font-size: 0.66rem; font-weight: 700;
+  font-size: var(--sn-text-2xs); font-weight: 700;
   padding: 0.08rem 0.45rem; border-radius: 999px;
   background: var(--mat-sys-surface-container-highest);
   color: var(--mat-sys-on-surface-variant);
@@ -373,70 +700,11 @@
   .due-ico { font-size: 1.05rem; width: 1.05rem; height: 1.05rem; color: var(--mat-sys-on-surface-variant); }
   .due-input {
     width: 110px; border: none; background: transparent; cursor: pointer;
-    font-size: 0.82rem; color: var(--mat-sys-on-surface);
+    font-size: var(--sn-text-sm); color: var(--mat-sys-on-surface);
     outline: none; padding: 0.35rem 0.2rem;
     &::placeholder { color: var(--mat-sys-on-surface-variant); }
   }
   .due-pick, .due-clear { opacity: 0.55; &:hover { opacity: 1; } }
-}
-
-/* ---- floating note windows (wall view) ---- */
-/* The window frame lives in note-window.scss; these style the projected content
-   (header controls + editor) that the manager passes into the window body. */
-.nw-head {
-  display: flex; align-items: center; gap: 0.4rem;
-  padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
-  background: var(--mat-sys-surface-container-low);
-  .pinned { color: var(--mat-sys-primary); }
-}
-app-note-window app-note-editor { flex: 1; min-height: 0; display: flex; }
-
-/* Folder window mini-grid: a simple wrapped flow of folder + note tiles. */
-.folder-window-grid {
-  display: flex; flex-wrap: wrap; gap: 0.5rem;
-  align-content: flex-start;
-  padding: 0.75rem;
-  overflow: auto;
-
-  .mini {
-    box-sizing: border-box;
-    width: 150px; min-height: 64px;
-    display: flex; flex-direction: column; gap: 0.2rem;
-    text-align: left;
-    padding: 0.5rem 0.6rem;
-    border-radius: 10px;
-    border: 1px solid var(--mat-sys-outline-variant);
-    background: var(--sn-card);
-    color: var(--mat-sys-on-surface);
-    cursor: pointer;
-    font: inherit;
-
-    &:hover { box-shadow: var(--mat-sys-level2); }
-
-    .mini-title {
-      font-weight: 600; font-size: 0.82rem;
-      display: flex; align-items: center; gap: 0.2rem;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .mini-preview {
-      font-size: 0.72rem; color: var(--mat-sys-on-surface-variant);
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-  }
-  .folder-mini {
-    background: var(--mat-sys-secondary-container);
-    color: var(--mat-sys-on-secondary-container);
-    flex-direction: row; align-items: center; min-height: 0;
-    .folder-ico { font-size: 1.2rem; width: 1.2rem; height: 1.2rem; }
-    .mini-title { flex: 1; }
-    .folder-count {
-      font-size: 0.7rem; font-weight: 700;
-      padding: 0.05rem 0.35rem; border-radius: 999px;
-      background: var(--mat-sys-surface-container-lowest);
-    }
-  }
 }
 
 /* ---- mobile ---- */
@@ -448,3 +716,25 @@ app-note-window app-note-editor { flex: 1; min-height: 0; display: flex; }
   .toolbar { gap: 0.4rem; padding: 0.5rem 0.6rem; }
   .toolbar .search { flex: 1 1 130px; }
 }
+
+/* --- due-date separators (list view, sorted by due date) --- */
+.due-separator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.85rem 0.25rem 0.35rem;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: var(--sn-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--mat-sys-outline-variant);
+  }
+}
+

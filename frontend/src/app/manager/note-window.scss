@@ -18,6 +18,30 @@
   box-shadow: var(--mat-sys-level4);
 }
 
+/* Dedicated resize grip in the bottom-right corner. Stacked above the body so it
+   owns the corner outright — the scroll zone never competes for the same pixels.
+   Pointer-driven resize lives in the component. */
+.nw-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  z-index: 3;
+  cursor: nwse-resize;
+  touch-action: none;
+  /* Two short diagonal hatch lines hint the affordance. */
+  background:
+    linear-gradient(
+      135deg,
+      transparent 0 8px,
+      var(--mat-sys-outline) 8px 9px,
+      transparent 9px 12px,
+      var(--mat-sys-outline) 12px 13px,
+      transparent 13px
+    );
+}
+
 .nw-bar {
   flex: 0 0 auto;
   display: flex;
@@ -36,7 +60,7 @@
     flex: 1;
     min-width: 0;
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: var(--sn-text-md);
     color: var(--mat-sys-on-surface);
     white-space: nowrap;
     overflow: hidden;
@@ -50,12 +74,15 @@
   display: flex;
   flex-direction: column;
   overflow: auto;
-  /* Trivial resize affordance (no custom handle). */
-  resize: both;
 }
 
 /* Raised shadow while dragging the window. */
 .note-window.cdk-drag-dragging { box-shadow: var(--mat-sys-level5); }
+
+/* While a folder-window tile is being dragged out, drop the clipping so the
+   dragged tile is visible past the window edges. */
+.note-window.unclip { overflow: visible; }
+.note-window.unclip .nw-body { overflow: visible; }
 
 @media (max-width: 768px) {
   .note-window {

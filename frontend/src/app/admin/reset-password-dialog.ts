@@ -6,7 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import type { UserAdminDto } from '@stickynotes/shared';
+import type { UserAdminDto } from '@perpetuum-nota/shared';
 import { UsersApi } from '../core/users.api';
 import { generateTempPassword } from './password-gen';
 
@@ -77,17 +77,17 @@ import { generateTempPassword } from './password-gen';
         padding: 1.25rem 1.4rem;
         box-shadow: var(--mat-sys-level5);
       }
-      h2 { margin: 0 0 0.9rem; font-size: 1.15rem; }
-      .hint { font-size: 0.85rem; color: var(--mat-sys-on-surface-variant); margin: 0 0 0.6rem; }
+      h2 { margin: 0 0 0.9rem; font-size: var(--sn-text-xl); }
+      .hint { font-size: var(--sn-text-sm); color: var(--mat-sys-on-surface-variant); margin: 0 0 0.6rem; }
       .pw-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.3rem; }
       .pw-field { flex: 1; }
       .copy-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.8rem; }
       .pw-display {
-        flex: 1; font-family: monospace; font-size: 1rem;
+        flex: 1; font-family: monospace; font-size: var(--sn-text-md);
         background: var(--mat-sys-surface-container); padding: 0.4rem 0.6rem;
         border-radius: 6px; word-break: break-all;
       }
-      .err { color: var(--mat-sys-error); font-size: 0.82rem; margin: 0.2rem 0 0; }
+      .err { color: var(--mat-sys-error); font-size: var(--sn-text-sm); margin: 0.2rem 0 0; }
       .actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.6rem; }
     `,
   ],

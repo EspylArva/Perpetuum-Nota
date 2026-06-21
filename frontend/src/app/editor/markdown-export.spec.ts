@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { docToMarkdown } from './markdown-export';
-import type { ProseMirrorDoc, ProseMirrorNode } from '@stickynotes/shared';
+import type { ProseMirrorDoc, ProseMirrorNode } from '@perpetuum-nota/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers to build minimal doc fixtures without verbose repetition.

@@ -1,0 +1,101 @@
+<mat-toolbar class="bar">
+  @if (isHandset()) {
+    <button matIconButton (click)="drawerOpen.set(!drawerOpen())" aria-label="Settings menu">
+      <mat-icon>menu</mat-icon>
+    </button>
+  }
+  <span class="brand">Perpetuum Nota · Settings</span>
+  <span class="spacer"></span>
+  <a matButton routerLink="/"><mat-icon>arrow_back</mat-icon> Back to notes</a>
+</mat-toolbar>
+
+<mat-sidenav-container class="layout">
+  <mat-sidenav
+    class="nav"
+    [mode]="isHandset() ? 'over' : 'side'"
+    [opened]="!isHandset() || drawerOpen()"
+    (closedStart)="drawerOpen.set(false)"
+  >
+    <mat-nav-list>
+      @for (s of sections(); track s.id) {
+        <a mat-list-item [routerLink]="s.link" [activated]="s.id === active()"
+           (click)="drawerOpen.set(false)" lines="2">
+          <mat-icon matListItemIcon>{{ s.icon }}</mat-icon>
+          <span matListItemTitle>{{ s.label }}</span>
+          <span matListItemLine class="nav-desc">{{ s.description }}</span>
+        </a>
+      }
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="content">
+   <div class="content-inner">
+    @switch (active()) {
+      @case ('preferences') {
+        <app-settings-panel title="Appearance"
+          description="Pick a colour palette and switch between light and dark.">
+          <app-setting-select label="Theme" [options]="themeOptions"
+            [value]="theme.themeName()" (valueChange)="setThemeName($event)" />
+          <app-setting-toggle label="Dark mode"
+            description="Use a dark colour scheme."
+            [checked]="theme.mode() === 'dark'" (checkedChange)="setDark($event)" />
+        </app-settings-panel>
+
+        <app-settings-panel title="Dates"
+          description="How dates are shown across the app.">
+          <app-setting-select label="Date format" [options]="dateFormatOptions"
+            [value]="settings.dateFormat()" (valueChange)="setDateFormat($event)" />
+          <app-setting-toggle label="Start week on Monday"
+            description="First day of the week in the calendar and pickers."
+            [checked]="settings.weekStart() === 'monday'" (checkedChange)="setMonday($event)" />
+          <app-setting-toggle label="Always show the full due date"
+            description="Show the calendar date instead of “due tomorrow”."
+            [checked]="settings.dueDisplay() === 'absolute'" (checkedChange)="setAbsoluteDates($event)" />
+          <p class="preview">Preview: <strong>{{ settings.format(today) }}</strong></p>
+        </app-settings-panel>
+
+        <app-settings-panel title="Editing"
+          description="Behaviour while working with notes and folders.">
+          <app-setting-toggle label="Confirm before deleting"
+            description="Ask for confirmation before deleting a note or folder."
+            [checked]="settings.confirmOnDelete()" (checkedChange)="setConfirmOnDelete($event)" />
+          <app-setting-toggle label="Number headings"
+            description="Show automatic outline numbers (1, 1.1, 1.1.1) before headings."
+            [checked]="settings.numberedHeadings()" (checkedChange)="setNumberedHeadings($event)" />
+        </app-settings-panel>
+      }
+
+      @case ('account') {
+        <app-settings-panel title="Password"
+          description="Update the password you use to sign in.">
+          <app-change-password-form />
+        </app-settings-panel>
+        <app-data-management />
+      }
+
+      @case ('administration') {
+        <app-admin-users />
+        <app-admin-database />
+      }
+
+      @case ('app-info') {
+        <app-settings-panel title="App info"
+          description="Version and build details for this instance.">
+          @if (info(); as i) {
+            <dl class="info-grid">
+              <dt>Application</dt><dd>{{ i.name }}</dd>
+              <dt>Version</dt><dd><span class="mono">{{ i.version }}</span></dd>
+              <dt>Commit</dt><dd><span class="mono">{{ i.commit }}</span> @if (i.branch !== 'unknown') { <span class="muted">({{ i.branch }})</span> }</dd>
+              <dt>Built</dt><dd>{{ buildTimeDisplay(i.buildTime) }}</dd>
+              <dt>Author</dt><dd>{{ i.author }}</dd>
+              <dt>Environment</dt><dd>{{ i.environment }}</dd>
+            </dl>
+          } @else {
+            <p class="muted">App info is unavailable.</p>
+          }
+        </app-settings-panel>
+      }
+    }
+   </div>
+  </mat-sidenav-content>
+</mat-sidenav-container>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { extractToc } from './toc';
-import type { ProseMirrorDoc, ProseMirrorNode } from '@stickynotes/shared';
+import { extractToc, headingNumbers, TocEntry } from './toc';
+import type { ProseMirrorDoc, ProseMirrorNode } from '@perpetuum-nota/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -124,5 +124,40 @@ describe('extractToc', () => {
     expect(result[0]).toMatchObject({ pos: 0 });
     expect(result[1]).toMatchObject({ pos: 3 });
     expect(result[2]).toMatchObject({ pos: 7 });
+  });
+});
+
+describe('headingNumbers', () => {
+  const entry = (level: number): TocEntry => ({ level, text: '', pos: 0 });
+
+  it('returns an empty array for no entries', () => {
+    expect(headingNumbers([])).toEqual([]);
+  });
+
+  it('numbers flat same-level headings sequentially', () => {
+    expect(headingNumbers([entry(1), entry(1), entry(1)])).toEqual(['1', '2', '3']);
+  });
+
+  it('builds hierarchical dotted numbers for nested headings', () => {
+    expect(headingNumbers([entry(1), entry(2), entry(3)])).toEqual(['1', '1.1', '1.1.1']);
+  });
+
+  it('resets deeper counters under each new higher heading', () => {
+    // H1, H2, H2, H1, H2  →  1, 1.1, 1.2, 2, 2.1
+    expect(headingNumbers([entry(1), entry(2), entry(2), entry(1), entry(2)])).toEqual([
+      '1',
+      '1.1',
+      '1.2',
+      '2',
+      '2.1',
+    ]);
+  });
+
+  it('mirrors CSS counters with leading zeros when a doc opens below H1', () => {
+    expect(headingNumbers([entry(3)])).toEqual(['0.0.1']);
+  });
+
+  it('clamps out-of-range levels into 1..5', () => {
+    expect(headingNumbers([entry(0), entry(9)])).toEqual(['1', '1.0.0.0.1']);
   });
 });

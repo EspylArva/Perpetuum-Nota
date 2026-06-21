@@ -19,6 +19,43 @@ html.dark {
   color-scheme: dark;
 }
 
+/* Named palettes (orthogonal to light/dark): ThemeStore toggles a
+   `theme-<name>` class on <html>, each re-including the M3 theme with different
+   Material palettes. Light/dark still comes from `color-scheme` above, so no
+   per-theme dark blocks are needed. */
+html.theme-monokai {
+  @include mat.theme((
+    color: (
+      primary: mat.$green-palette,
+      tertiary: mat.$orange-palette,
+    ),
+    typography: Roboto,
+    density: 0,
+  ));
+}
+
+html.theme-dracula {
+  @include mat.theme((
+    color: (
+      primary: mat.$violet-palette,
+      tertiary: mat.$magenta-palette,
+    ),
+    typography: Roboto,
+    density: 0,
+  ));
+}
+
+html.theme-nord {
+  @include mat.theme((
+    color: (
+      primary: mat.$blue-palette,
+      tertiary: mat.$cyan-palette,
+    ),
+    typography: Roboto,
+    density: 0,
+  ));
+}
+
 html,
 body {
   height: 100%;
@@ -29,6 +66,36 @@ body {
   background: var(--mat-sys-surface);
   color: var(--mat-sys-on-surface);
   font: var(--mat-sys-body-medium);
+  font-size: var(--sn-text-base);
+}
+
+/* =========================================================================
+   Typography scale — the single source of truth for TEXT sizing.
+   Every component pulls font sizes from these tokens (var(--sn-text-*)) so the
+   app stays homogeneous; don't hard-code a rem font-size in a component again.
+   Steps are ~one comfortable notch apart; pick by role, not by pixel:
+     2xs  badges, pills, micro-meta
+     xs   captions, table headers, dense secondary text
+     sm   labels, hints, secondary body
+     base default body copy  ← the app's baseline
+     md   emphasized body, inputs, small titles
+     lg   brand wordmark, card / section titles
+     xl   dialog titles, prominent sub-headings
+     2xl  page titles
+     3xl  display / editor H1
+   (Icon glyph sizing is a separate concern — keep a mat-icon's font-size paired
+   with its width/height, not these tokens.)
+   ========================================================================= */
+html {
+  --sn-text-2xs: 0.7rem;
+  --sn-text-xs: 0.75rem;
+  --sn-text-sm: 0.82rem;
+  --sn-text-base: 0.9rem;
+  --sn-text-md: 0.95rem;
+  --sn-text-lg: 1.05rem;
+  --sn-text-xl: 1.2rem;
+  --sn-text-2xl: 1.4rem;
+  --sn-text-3xl: 1.5rem;
 }
 
 /* App-level semantic tokens shared by component styles. The sticky-note brand
@@ -42,7 +109,10 @@ html {
   --sn-grid-cross: color-mix(in srgb, var(--mat-sys-on-surface) 22%, transparent);
 }
 
-html:not(.dark) {
+/* The yellow sticky-note tint is the DEFAULT theme's signature. Named palettes
+   fall back to the neutral elevated surface (the `--sn-card` set above), so
+   their cards read in-palette rather than always-yellow. */
+html:not(.dark):not([class*='theme-']) {
   --sn-card: #fff6b8;
   --sn-card-border: #e8db82;
 }

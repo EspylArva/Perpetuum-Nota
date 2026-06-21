@@ -14,6 +14,9 @@ export interface FolderSummary {
   parentId: string | null;
   /** Live (non-trashed) notes directly in this folder. */
   noteCount: number;
+  /** Wall-view grid coordinates (cell units); null = never hand-placed. */
+  wallX: number | null;
+  wallY: number | null;
 }
 
 @Injectable()
@@ -36,6 +39,8 @@ export class FoldersService {
       name: f.name,
       parentId: f.parentId,
       noteCount: f._count.notes,
+      wallX: f.wallX,
+      wallY: f.wallY,
     }));
   }
 
@@ -51,6 +56,8 @@ export class FoldersService {
       name: folder.name,
       parentId: folder.parentId,
       noteCount: 0,
+      wallX: folder.wallX,
+      wallY: folder.wallY,
     };
   }
 
@@ -95,6 +102,9 @@ export class FoldersService {
           data: {
             ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
             ...(moving ? { parentId: newParentId } : {}),
+            // Wall grid placement (only when present in the body).
+            ...(dto.wallX !== undefined ? { wallX: dto.wallX } : {}),
+            ...(dto.wallY !== undefined ? { wallY: dto.wallY } : {}),
           },
           include: {
             _count: { select: { notes: { where: { deletedAt: null } } } },
@@ -108,6 +118,8 @@ export class FoldersService {
       name: folder.name,
       parentId: folder.parentId,
       noteCount: folder._count.notes,
+      wallX: folder.wallX,
+      wallY: folder.wallY,
     };
   }
 
